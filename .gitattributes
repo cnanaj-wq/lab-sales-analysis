@@ -1,0 +1,6 @@
+# Normaliser les fichiers texte dans Git
+* text=auto
+
+# Utiliser LF pour les scripts shell exécutés sous Linux
+*.sh text eol=lf
+data/raw/** -text
