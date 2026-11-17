@@ -6,12 +6,11 @@ Lancement depuis la racine du projet :
 
 Chaque contrôle porte un identifiant repris dans docs/02_profilage_source.md :
     S = structure, V = volume, F = format (validité), C = complétude,
-    U = unicité.
+    U = unicité, K = cohérence.
 """
-
 import json
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
@@ -151,3 +150,92 @@ print(
     len(repeated_products),
     repeated_products[:10],
 )
+
+# --- Cohérence ----------------------------------------------------------------
+
+# K1 : le montant du ticket est-il la somme de ses lignes ? (RG02)
+# Arrondi au centime des deux côtés : les float sont approchés (0.1 + 0.2).
+amount_mismatches = [
+    transaction["transaction_id"]
+    for transaction in transactions
+    if round(transaction["total_amount"], 2)
+    != round(
+        sum(
+            product["quantity"] * product["price"]
+            for product in transaction["products"]
+        ),
+        2,
+    )
+]
+
+print(
+    "K1 Tickets dont le montant ne correspond pas aux lignes :",
+    len(amount_mismatches),
+    amount_mismatches[:10],
+)
+
+# K2 : la quantité du ticket est-elle la somme de ses lignes ? (RG03)
+quantity_mismatches = [
+    transaction["transaction_id"]
+    for transaction in transactions
+    if transaction["total_quantity_sold"]
+    != sum(product["quantity"] for product in transaction["products"])
+]
+
+print(
+    "K2 Tickets dont la quantité ne correspond pas aux lignes :",
+    len(quantity_mismatches),
+    quantity_mismatches[:10],
+)
+
+# K3 : chaque pays utilise-t-il une seule devise ? (daily_sales_country_currency)
+currencies_by_country = defaultdict(set)
+for transaction in transactions:
+    country = transaction["store_country"]
+    currencies_by_country[country].add(transaction["currency"])
+
+multi_currency_countries = {
+    country: sorted(country_currencies)
+    for country, country_currencies in currencies_by_country.items()
+    if len(country_currencies) > 1
+}
+
+print(
+    "K3 Pays avec plusieurs devises :",
+    len(multi_currency_countries),
+    multi_currency_countries,
+)
+
+# K4 : un store_id désigne-t-il toujours le même magasin ? (P01)
+stores_by_id = defaultdict(set)
+for transaction in transactions:
+    store = (
+        transaction["store_name"],
+        transaction["store_city"],
+        transaction["store_country"],
+        transaction["store_type"],
+    )
+    stores_by_id[transaction["store_id"]].add(store)
+
+unstable_store_ids = [
+    store_id for store_id, stores in stores_by_id.items() if len(stores) > 1
+]
+
+print("K4 store_id distincts :", len(stores_by_id))
+print(
+    "K4 store_id qui désignent plusieurs magasins :",
+    len(unstable_store_ids),
+    unstable_store_ids[:5],
+)
+
+if unstable_store_ids:
+    print("    exemple :", sorted(stores_by_id[unstable_store_ids[0]]))
+
+# K5 : promo_code = [indicateur, code]. Les deux parties sont-elles cohérentes ?
+promo_combinations = Counter(
+    (transaction["promo_code"][0], transaction["promo_code"][1] is not None)
+    for transaction in transactions
+)
+
+for (flag, has_code), count in sorted(promo_combinations.items()):
+    print("K5 promo_code", flag, "| code renseigné :", has_code, "|", count)
