@@ -6,7 +6,7 @@ Lancement depuis la racine du projet :
 
 Chaque contrôle porte un identifiant repris dans docs/02_profilage_source.md :
     S = structure, V = volume, F = format (validité), C = complétude,
-    U = unicité, K = cohérence.
+    U = unicité, K = cohérence, D = distribution.
 """
 import json
 import sys
@@ -239,3 +239,56 @@ promo_combinations = Counter(
 
 for (flag, has_code), count in sorted(promo_combinations.items()):
     print("K5 promo_code", flag, "| code renseigné :", has_code, "|", count)
+
+# --- Distribution -------------------------------------------------------------
+
+# D1 : répartition des tickets vendus / retournés (traitement des retours dans le CA)
+return_counts = Counter(transaction["return_status"] for transaction in transactions)
+print("D1 Statut de retour :", dict(return_counts))
+
+# D2 : moyens de paiement (payment_method_analysis)
+payment_counts = Counter(transaction["payment_method"] for transaction in transactions)
+print("D2 Moyens de paiement :", len(payment_counts), sorted(payment_counts))
+for method, count in payment_counts.most_common():
+    print("    -", method, ":", count)
+
+# D3 : types de magasin (axe magasin, faute de store_id fiable)
+store_type_counts = Counter(transaction["store_type"] for transaction in transactions)
+print("D3 Types de magasin :", dict(store_type_counts.most_common()))
+
+# D4 : lignes article par produit (exploded_products)
+product_counts = Counter(
+    (product["product_id"], product["product_name"])
+    for transaction in transactions
+    for product in transaction["products"]
+)
+
+print("D4 Produits distincts :", len(product_counts))
+for (product_id, product_name), count in sorted(product_counts.items()):
+    print("    -", product_id, product_name, ":", count)
+
+# D5 : un produit a-t-il un prix unique ? (price dans exploded_products)
+prices_by_product = defaultdict(set)
+for transaction in transactions:
+    for product in transaction["products"]:
+        prices_by_product[product["product_id"]].add(product["price"])
+
+print("D5 Prix distincts par produit :")
+for product_id, prices in sorted(prices_by_product.items()):
+    print(
+        "    -",
+        product_id,
+        ":",
+        len(prices),
+        "prix, de",
+        min(prices),
+        "à",
+        max(prices),
+    )
+
+# D6 : tickets par jour (H01 : un jour sans vente signale une livraison manquante)
+tickets_by_day = Counter(timestamp[:10] for timestamp in timestamps)
+
+print("D6 Jours avec ventes :", len(tickets_by_day))
+print("D6 Tickets par jour, minimum :", min(tickets_by_day.values()))
+print("D6 Tickets par jour, maximum :", max(tickets_by_day.values()))
