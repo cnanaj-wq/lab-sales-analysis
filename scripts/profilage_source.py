@@ -5,11 +5,13 @@ Lancement depuis la racine du projet :
     python scripts/profilage_source.py
 
 Chaque contrôle porte un identifiant repris dans docs/02_profilage_source.md :
-    S = structure, V = volume, F = format (validité), C = complétude.
+    S = structure, V = volume, F = format (validité), C = complétude,
+    U = unicité.
 """
 
 import json
 import sys
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
@@ -116,3 +118,36 @@ for transaction in transactions:
 
 print("C3 Articles aux champs différents :", irregular_products)
 print("C4 Valeurs manquantes (articles) :", missing_product_values)
+
+# --- Unicité ------------------------------------------------------------------
+
+# U1 : l'identifiant du ticket est-il unique ? (clé primaire, RG05)
+id_counts = Counter(transaction["transaction_id"] for transaction in transactions)
+duplicate_ids = [tid for tid, count in id_counts.items() if count > 1]
+print("U1 Identifiants en double :", len(duplicate_ids), duplicate_ids[:10])
+
+# U2 : doublon caché, même contenu sous un autre identifiant.
+content_counts = Counter(
+    json.dumps(
+        {key: value for key, value in transaction.items() if key != "transaction_id"},
+        sort_keys=True,
+    )
+    for transaction in transactions
+)
+
+hidden_duplicates = sum(count - 1 for count in content_counts.values() if count > 1)
+print("U2 Tickets identiques sous un autre identifiant :", hidden_duplicates)
+
+# U3 : un produit répété dans un ticket ?
+repeated_products = [
+    transaction["transaction_id"]
+    for transaction in transactions
+    if len(transaction["products"])
+    != len({product["product_id"] for product in transaction["products"]})
+]
+
+print(
+    "U3 Tickets avec un produit répété :",
+    len(repeated_products),
+    repeated_products[:10],
+)
