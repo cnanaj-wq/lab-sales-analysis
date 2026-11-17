@@ -5,7 +5,7 @@ Lancement depuis la racine du projet :
     python scripts/profilage_source.py
 
 Chaque contrôle porte un identifiant repris dans docs/02_profilage_source.md :
-    S = structure, V = volume, F = format (validité).
+    S = structure, V = volume, F = format (validité), C = complétude.
 """
 
 import json
@@ -15,6 +15,8 @@ from pathlib import Path
 
 SOURCE_FILE = Path("data") / "raw" / "pos_sales_data_30k.json"
 TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
+# Ce qui compte comme « vide ». Le 0 n'y est pas : une remise de 0 est une valeur.
+MISSING_VALUES = (None, "", [])
 
 # --- Chargement ---------------------------------------------------------------
 
@@ -68,3 +70,49 @@ for timestamp in timestamps:
 
 print("F1 Dates conformes :", len(timestamps) - len(invalid_timestamps))
 print("F2 Dates non conformes :", len(invalid_timestamps), invalid_timestamps[:10])
+
+# --- Complétude ---------------------------------------------------------------
+
+# Niveau ticket. Référence provisoire : les champs du premier ticket
+# (elle viendra du contrat de données).
+reference_fields = set(first_transaction.keys())
+
+irregular_transactions = [
+    transaction.get("transaction_id")
+    for transaction in transactions
+    if set(transaction.keys()) != reference_fields
+]
+print(
+    "C1 Tickets aux champs différents :",
+    len(irregular_transactions),
+    irregular_transactions[:10],
+)
+
+# Limite : une valeur vide À L'INTÉRIEUR d'une liste n'est pas vue
+# (promo_code = ["no", null] n'est pas vide). Elle relève de la cohérence.
+missing_counts = {field: 0 for field in reference_fields}
+for transaction in transactions:
+    for field in reference_fields:
+        if transaction.get(field) in MISSING_VALUES:
+            missing_counts[field] += 1
+
+print("C2 Valeurs manquantes (tickets) :", sum(missing_counts.values()))
+for field, count in sorted(missing_counts.items()):
+    if count > 0:
+        print("    -", field, ":", count)
+
+# Niveau article : mêmes contrôles, un niveau plus bas.
+reference_product_fields = set(first_transaction["products"][0].keys())
+
+irregular_products = 0
+missing_product_values = 0
+for transaction in transactions:
+    for product in transaction["products"]:
+        if set(product.keys()) != reference_product_fields:
+            irregular_products += 1
+        for value in product.values():
+            if value in MISSING_VALUES:
+                missing_product_values += 1
+
+print("C3 Articles aux champs différents :", irregular_products)
+print("C4 Valeurs manquantes (articles) :", missing_product_values)
