@@ -286,7 +286,7 @@ for product_id, prices in sorted(prices_by_product.items()):
         max(prices),
     )
 
-# D6 : tickets par jour (H01 : un jour sans vente signale une livraison manquante)
+# D6 : tickets par jour (RG06 : un jour sans vente signale une livraison manquante)
 tickets_by_day = Counter(timestamp[:10] for timestamp in timestamps)
 
 print("D6 Jours avec ventes :", len(tickets_by_day))
