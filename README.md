@@ -38,11 +38,12 @@ Le fichier source `data/raw/pos_sales_data_30k.json` contient 30 000 tickets de 
 | Document | Contenu | Version | Mis à jour le |
 | --- | --- | --- | --- |
 | [Note de cadrage métier](docs/01_Besoin_metier.md) | Besoin, utilisateurs, périmètre, indicateurs, règles de gestion et critères de succès | 0.2 | 2026-11-16 |
+| [Profilage du fichier source](docs/02_profilage_source.md) | Résultats des contrôles S1 à D6, anomalies, limites et règles proposées pour le contrat de données | 0.1 | 2026-11-18 |
 
 ## État d'avancement
 
 - [x] Cadrage métier
-- [ ] Profilage du fichier source
+- [x] Profilage du fichier source
 - [ ] Contrat de données
 - [ ] Socle PostgreSQL et Airflow
 - [ ] Extension Snowflake et dbt
