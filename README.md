@@ -32,7 +32,7 @@ Lab_Sales_Analysis/
 ├── data/
 │   └── raw/        fichier source fourni par le client, jamais modifié
 ├── docs/           documentation du projet
-│   └── modeles/    modèles de données (MCD)
+│   └── modeles/    modèles de données (MCD et MPD)
 ├── scripts/        scripts Python
 ├── .gitattributes  règles de fins de ligne
 ├── .gitignore      fichiers exclus du dépôt
@@ -56,6 +56,25 @@ Points clés :
 - la quantité et le prix appartiennent à la **ligne de vente** (association CONTENIR), car le prix d'un même produit varie d'une vente à l'autre ;
 - la **devise** est rattachée au pays : chaque pays utilise une seule devise, et l'euro est partagé par 5 pays.
 
+### Modèle physique
+
+Le modèle physique de données (MPD) traduit le MCD en tables PostgreSQL. Il est écrit en [DBML](docs/modeles/mpd.dbml) et dessiné avec dbdiagram.io. Les tables sont rangées en couches, selon l'architecture médaillon :
+
+| Schéma | Tables | Rôle |
+| --- | --- | --- |
+| `bronze` | `pos_sales_raw` | Tickets tels que livrés, au format JSON, sans correction |
+| `silver` | `exploded_products` et les 10 tables issues du MCD | Données contrôlées : la table intermédiaire demandée par l'énoncé et le modèle métier |
+| `gold` | `store_sales_summary`, `daily_sales_country_currency`, `payment_method_analysis` | Tables d'analyse qui répondent aux 12 questions métier |
+| `ops` | `journal_livraisons`, `journal_controles` | Suivi de chaque livraison et du résultat des contrôles |
+
+![Modèle physique de données](docs/modeles/mpd.svg)
+
+Choix de modélisation :
+
+- les colonnes des tables demandées par l'énoncé sont reprises à l'identique, à une exception près : les montants sont en `numeric` et non en `FLOAT`, pour des calculs exacts au centime ;
+- `bronze` conserve le code promo, absent de `exploded_products` ;
+- `store_sales_summary` respecte le grain imposé par l'énoncé (`store_id`). Les questions sur les magasins sont aussi calculées sur `silver.magasin`, avec une réserve, car `store_id` n'identifie pas un magasin unique.
+
 ## Documentation
 
 | Document | Contenu | Version | Mis à jour le |
@@ -64,6 +83,7 @@ Points clés :
 | [Profilage du fichier source](docs/02_profilage_source.md) | Résultats des contrôles S1 à D6, anomalies, limites et règles proposées pour le contrat de données | 0.2 | 2026-11-19 |
 | [Modèle conceptuel de données](docs/modeles/mcd.excalidraw.svg) | Entités, associations et cardinalités du domaine des ventes (Merise) | 0.1 | 2026-11-19 |
 | [Contrat de données](docs/03_contrat_donnees.md) | Livraison, schéma source → MCD, valeurs de référence, identification, contrôles de qualité CQ01 à CQ28 et traitement des écarts | 0.1 | 2026-11-19 |
+| [Modèle physique de données](docs/modeles/mpd.dbml) | Tables PostgreSQL, clés et relations, rangées en couches bronze, silver, gold et ops | 0.1 | 2026-11-19 |
 
 ## État d'avancement
 
@@ -73,6 +93,7 @@ Le détail de la réalisation brique par brique est suivi dans le [tableau Kanba
 - [x] Profilage du fichier source
 - [x] Modèle conceptuel de données
 - [x] Contrat de données
+- [x] Modèle physique de données
 - [ ] Socle PostgreSQL et Airflow
 - [ ] Extension Snowflake et dbt
 - [ ] Rapport Power BI et supervision
