@@ -5,10 +5,10 @@
 | Champ      | Valeur                          |
 |------------|---------------------------------|
 | Référence  | LSA-DOC-02                      |
-| Version    | 0.1                             |
+| Version    | 0.2                             |
 | Statut     | Brouillon                       |
 | Auteur     | Cédric NANA                     |
-| Date       | 2026-11-18                      |
+| Date       | 2026-11-19                      |
 | Validateur | Responsable métier (à désigner) |
 
 
@@ -18,6 +18,7 @@
 | Version | Date       | Auteur      | Modification                         |
 |---------|------------|-------------|--------------------------------------|
 | 0.1     | 2026-11-18 | Cédric NANA | Création : sections 1 à 6 |
+| 0.2     | 2026-11-19 | Cédric NANA | Ajout des contrôles K6 et K7, des anomalies A4 et A5, des règles RP08 et RP09 , mise à jour de RP01 après le MCD |
 
 
 ---
@@ -49,9 +50,9 @@ Le fichier est en **lecture seule** : il n'est jamais modifié, ni par le script
 | Élément          | Valeur                                              |
 |------------------|-----------------------------------------------------|
 | Script           | `scripts/profilage_source.py`                       |
-| Version          | commit `6d42fe4` de la branche `feature/profilage-source` |
+| Version          | commit `981a26e` de la branche `docs/modele-donnees` |
 | Langage          | Python 3.12.10, bibliothèque standard uniquement    |
-| Date d'exécution | 2026-11-18                                          |
+| Date d'exécution | 2026-11-19                                          |
 | Commande         | `python scripts/profilage_source.py`, depuis la racine du projet |
 
 Chaque contrôle porte un identifiant, repris dans ce document et dans les messages du script :
@@ -85,8 +86,9 @@ Chaque contrôle porte un identifiant, repris dans ce document et dans les messa
 
 - **Le fichier est techniquement sain.** La structure est identique sur les 30 000 tickets, aucune valeur ne manque, toutes les dates sont conformes et il n'y a aucun doublon.
 - **Les totaux des tickets sont fiables.** Le montant et la quantité de chaque ticket sont égaux à la somme de ses lignes. Le montant est **brut** (remise non déduite) et exprimé en **devise locale**.
-- **`store_id` ne peut pas servir de clé magasin.** 87,5 % des identifiants désignent plusieurs magasins, parfois dans plusieurs pays. C'est le seul point **bloquant** : le grain de la table `store_sales_summary` doit être décidé dans le contrat de données.
+- **`store_id` ne peut pas servir de clé magasin.** 87,5 % des identifiants désignent plusieurs magasins, parfois dans plusieurs pays. C'est le seul point **bloquant**. Le modèle de données propose d'identifier un magasin par son enseigne et sa ville : 450 magasins, chacun pouvant apparaître sous deux types (`Mall` ou `Standalone Store`) selon le ticket.
 - **Deux règles de gestion sont à fixer** : 2 980 tickets retournés (9,9 %) et 2 442 tickets « promo : oui » sans code (8,1 %).
+- **La remise ne dépend pas de la promotion** : la quasi-totalité des tickets ont une remise, avec ou sans promotion. La remise moyenne porte donc sur tous les tickets.
 - **Certains indicateurs ne sont pas calculables** : le fichier ne contient ni client, ni taxe, ni taux de change. Il n'y a donc ni fidélisation, ni distinction TTC / HT, ni CA consolidé dans une seule devise.
 - **La livraison est complète** : les 1 096 jours de la période ont des ventes entre 12 et 49 tickets par jour. Ces bornes serviront de seuils au contrôle quotidien. 
 
@@ -148,6 +150,8 @@ Statuts : **Conforme** (aucune action), **À surveiller** (une règle ou une lim
 | K3 | Une seule devise par pays | 0 pays multidevise ; l'EUR couvre 5 pays | Conforme |
 | K4 | Un `store_id` = un seul magasin | 7 598 identifiants sur 8 681 (87,5 %) désignent plusieurs magasins. Exemple : `STR1483` à Montréal, Mumbai et Medan | **Bloquant** : `store_id` n'est pas une clé (P01) |
 | K5 | Cohérence de `promo_code` | `no` sans code : 14 916 ; `yes` avec code : 12 642 ; `yes` sans code : **2 442** (8,1 %) | À surveiller : règle pour le code manquant |
+| K6 | Un magasin (enseigne, ville) a toujours le même type | 450 magasins ; les **450** apparaissent sous plusieurs types | À surveiller : le type décrit le ticket, pas le magasin |
+| K7 | Lien entre la remise et la promotion | Sans promo et remise > 0 : **14 914** ; avec promo et remise > 0 : 15 079 ; remise nulle : 7 tickets (2 sans promo, 5 avec promo) | À surveiller : la remise est indépendante de la promotion |
 
 ### 3.7 Distribution (D)
 
@@ -169,9 +173,11 @@ Une anomalie est une donnée présente dans le fichier mais qui ne peut pas êtr
 
 | Identifiant | Constat | Contrôle | Impact | Décision à prendre |
 |-------------|---------|----------|--------|--------------------|
-| A1 | `store_id` ne désigne pas un magasin unique : 7 598 identifiants sur 8 681 (87,5 %) renvoient à plusieurs magasins, parfois dans plusieurs pays (P01) | K4 | Grouper par `store_id` mélange des magasins, des pays et des devises. La table `store_sales_summary` serait fausse | Choisir le grain de l'axe magasin, par exemple (`store_name`, `store_city`, `store_country`) |
+| A1 | `store_id` ne désigne pas un magasin unique : 7 598 identifiants sur 8 681 (87,5 %) renvoient à plusieurs magasins, parfois dans plusieurs pays (P01) | K4 | Grouper par `store_id` mélange des magasins, des pays et des devises. La table `store_sales_summary` serait fausse | Proposé dans le modèle de données : un magasin = une enseigne dans une ville, soit 450 magasins (K6). À valider dans le contrat de données |
 | A2 | 2 442 tickets (8,1 %) indiquent une promotion (`yes`) sans code (`null`) | K5 | Le nombre de tickets en promotion vaut 15 084 si l'on suit l'indicateur, 12 642 si l'on suit le code | Choisir la référence : l'indicateur ou le code, et la valeur qui remplace le code manquant |
 | A3 | 2 980 tickets (9,9 %) sont retournés. Le statut porte sur le ticket entier sans date, sans montant et sans détail par article | D1 | Le CA varie d'environ 10 % selon que les retours sont inclus ou exclus. Un retour partiel ne peut pas être distingué | Déjà tranché par RG04 : le montant est conservé et le retour est compté à part. Reste une limite : un retour partiel ne peut pas être identifié |
+| A4 | La remise n'est pas liée à la promotion : 14 914 tickets sans promotion ont une remise supérieure à 0 | K7 | Comparer la remise des tickets avec et sans promotion ne montre aucun effet de la promotion. La remise moyenne porte sur la quasi-totalité des tickets | Confirmer avec le métier l'origine de la remise et la définition de la remise moyenne (RG08) |
+| A5 | Le type de magasin (`store_type`) change d'un ticket à l'autre pour un même magasin : les 450 magasins apparaissent sous les deux types | K6 | Classer les magasins par type est impossible. Une analyse par type se calcule au niveau du ticket, et un même magasin compte dans les deux types | Confirmer avec le métier la signification de `store_type` |
 
 ### 4.2 Limites
 
@@ -190,13 +196,15 @@ Ces règles sont des **propositions** issues du profilage. Elles seront validée
 
 | Identifiant | Origine | Règle proposée |
 |-------------|---------|----------------|
-| RP01 | A1, K4, RG10 | Un magasin est identifié par le triplet (`store_name`, `store_city`, `store_country`) et non par `store_id`. L'unicité de ce triplet reste à vérifier avant validation. |
+| RP01 | A1, K4, K6, RG10 | Un magasin est identifié par le couple (`store_name`, `store_city`) et non par `store_id`, soit 450 magasins. Le pays se déduit de la ville. `store_type` n'est pas un attribut du magasin (voir RP09). |
 | RP02 | A2, K5 | L'indicateur de `promo_code` fait foi pour compter les tickets en promotion. Un code manquant est remplacé par la valeur `UNKNOWN`. |
 | RP03 | A3, D1, RG04 | Un ticket retourné reste dans le montant des ventes. Le retour est compté à part, à partir de `return_status`. Le retour s'applique au ticket entier. |
 | RP04 | L1, L2, RG02 | Les montants sont publiés tels que livrés, toujours accompagnés de leur devise. Aucun montant n'est additionné entre devises différentes. |
 | RP05 | S5, V1, D5, RG02, RG03 | `exploded_products` contient une ligne par article soit 59 928 lignes pour ce fichier. Le prix est lu sur la ligne de vente. Le montant d'une ligne vaut quantité × prix. `total_amount` n'est jamais additionné sur les lignes d'un même ticket. |
 | RP06 | S, F, C, U, K1, K2, RG05, RG06 | À chaque livraison, les contrôles de structure, de format, de complétude, d'unicité et de rapprochement des totaux sont rejoués. Un seul échec bloque la publication de la livraison. |
 | RP07 | D6, RG06 | Une journée sans aucun ticket déclenche une alerte. Un volume en dehors de 12 à 49 tickets par jour déclenche un avertissement. Ces seuils sont à recalibrer sur le volume de production. |
+| RP08 | A4, K7, RG08 | La remise est un attribut du ticket, analysée indépendamment de la promotion. La remise moyenne se calcule sur tous les tickets, conformément à H07. |
+| RP09 | A5, K6 | `store_type` est conservé au niveau du ticket. Toute analyse par type de magasin se calcule sur les tickets, jamais sur une liste de magasins. |
 
 
 ## 6. Reproduire le profilage
@@ -216,7 +224,7 @@ python scripts/profilage_source.py
 
 ### 6.3 Résultat attendu
 
-- Le script affiche une ligne par contrôle, préfixée par son identifiant (S1 à D6). Les valeurs doivent être identiques à celles de la section 3.
+- Le script affiche une ligne par contrôle, préfixée par son identifiant (S1 à D6, dont K1 à K7). Les valeurs doivent être identiques à celles de la section 3.
 - Le script s'exécute en 2 secondes environ et se termine avec le code 0.
 - Si le fichier source est absent, le script s'arrête avec le message « Arrêt : fichier source introuvable » et revnoie le code 1.
 
@@ -254,6 +262,12 @@ K4 store_id qui désignent plusieurs magasins : 7598 ['STR1483', 'STR1805', 'STR
 K5 promo_code no | code renseigné : False | 14916
 K5 promo_code yes | code renseigné : False | 2442
 K5 promo_code yes | code renseigné : True | 12642
+K6 Magasins (enseigne, ville) : 450
+K6 Magasins avec plusieurs types : 450
+K7 promo no | remise > 0 : False | 2
+K7 promo no | remise > 0 : True | 14914
+K7 promo yes | remise > 0 : False | 5
+K7 promo yes | remise > 0 : True | 15079
 D1 Statut de retour : {'Returned': 2980, 'Not Returned': 27020}
 D2 Moyens de paiement : 7 ['Apple Pay (Mastercard)', 'Apple Pay (Visa)', 'Cash', 'Google Pay (Mastercard)', 'Google Pay (Visa)', 'Mastercard', 'Visa']
     - Mastercard : 4389

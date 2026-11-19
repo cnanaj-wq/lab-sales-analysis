@@ -240,6 +240,28 @@ promo_combinations = Counter(
 for (flag, has_code), count in sorted(promo_combinations.items()):
     print("K5 promo_code", flag, "| code renseigné :", has_code, "|", count)
 
+# K6 : un magasin (enseigne, ville) a-t-il toujours le même type ? (RP01)
+types_by_store = defaultdict(set)
+for transaction in transactions:
+    store = (transaction["store_name"], transaction["store_city"])
+    types_by_store[store].add(transaction["store_type"])
+
+multi_type_stores = [
+    store for store, store_types in types_by_store.items() if len(store_types) > 1
+]
+
+print("K6 Magasins (enseigne, ville) :", len(types_by_store))
+print("K6 Magasins avec plusieurs types :", len(multi_type_stores))
+
+# K7 : la remise est-elle liée à la promotion ? (RG08)
+discount_by_promo = Counter(
+    (transaction["promo_code"][0], transaction["discount_applied"] > 0)
+    for transaction in transactions
+)
+
+for (flag, has_discount), count in sorted(discount_by_promo.items()):
+    print("K7 promo", flag, "| remise > 0 :", has_discount, "|", count)
+
 # --- Distribution -------------------------------------------------------------
 
 # D1 : répartition des tickets vendus / retournés (traitement des retours dans le CA)
