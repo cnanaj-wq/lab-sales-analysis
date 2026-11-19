@@ -63,13 +63,16 @@ Points clés :
 | [Note de cadrage métier](docs/01_Besoin_metier.md) | Besoin, utilisateurs, périmètre, indicateurs, règles de gestion et critères de succès | 0.2 | 2026-11-16 |
 | [Profilage du fichier source](docs/02_profilage_source.md) | Résultats des contrôles S1 à D6, anomalies, limites et règles proposées pour le contrat de données | 0.2 | 2026-11-19 |
 | [Modèle conceptuel de données](docs/modeles/mcd.excalidraw.svg) | Entités, associations et cardinalités du domaine des ventes (Merise) | 0.1 | 2026-11-19 |
+| [Contrat de données](docs/03_contrat_donnees.md) | Livraison, schéma source → MCD, valeurs de référence, identification, contrôles de qualité CQ01 à CQ28 et traitement des écarts | 0.1 | 2026-11-19 |
 
 ## État d'avancement
+
+Le détail de la réalisation brique par brique est suivi dans le [tableau Kanban du projet](https://github.com/users/cnanaj-wq/projects/1).
 
 - [x] Cadrage métier
 - [x] Profilage du fichier source
 - [x] Modèle conceptuel de données
-- [ ] Contrat de données
+- [x] Contrat de données
 - [ ] Socle PostgreSQL et Airflow
 - [ ] Extension Snowflake et dbt
 - [ ] Rapport Power BI et supervision
