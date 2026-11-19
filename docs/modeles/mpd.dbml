@@ -1,0 +1,239 @@
+// Modèle physique de données - Lab Sales Analysis
+// Brouillon v0.1 - 2026-11-19 - Cédric NANA
+// À coller dans https://dbdiagram.io pour obtenir le diagramme.
+//
+// Architecture médaillon :
+//   bronze : données telles que livrées
+//   silver : données contrôlées (table intermédiaire de l'énoncé et tables du MCD)
+//   gold   : tables d'analyse de l'énoncé
+//   ops    : journal des livraisons et des contrôles (contrat, section 7.4)
+
+Project lab_sales_analysis {
+  database_type: 'PostgreSQL'
+  Note: 'Pipeline de données de ventes POS. Références : LSA-DOC-01 (cadrage), LSA-DOC-02 (profilage), LSA-DOC-03 (contrat).'
+}
+
+// ============================================================================
+// ops : suivi des livraisons
+// ============================================================================
+
+Table ops.journal_livraisons {
+  livraison_id serial [pk]
+  nom_fichier text [not null, note: 'pos_sales_AAAA-MM-JJ.json ou pos_sales_data_30k.json']
+  journee_vente date [note: 'Journée couverte. Vide pour la reprise d historique']
+  recu_le timestamptz [not null]
+  traite_le timestamptz
+  nb_tickets integer
+  statut text [not null, note: 'Publiée, publiée avec avertissement, refusée, manquante']
+
+  Note: 'Une ligne par tentative de traitement. Une reprise crée une nouvelle ligne (contrat 7.3).'
+}
+
+Table ops.journal_controles {
+  livraison_id integer [not null]
+  code_controle text [not null, note: 'CQ01 à CQ28']
+  resultat text [not null, note: 'Réussi, avertissement, échec']
+  nb_ecarts integer [not null, default: 0]
+  exemples text [note: 'Au plus 10 exemples par échec']
+
+  indexes {
+    (livraison_id, code_controle) [pk]
+  }
+}
+
+// ============================================================================
+// bronze : données telles que livrées
+// ============================================================================
+
+Table bronze.pos_sales_raw {
+  raw_id bigserial [pk]
+  livraison_id integer [not null]
+  transaction_id text [not null, note: 'Extrait du document pour faciliter les recherches']
+  document jsonb [not null, note: 'Ticket complet tel que livré, promo_code compris']
+  charge_le timestamptz [not null, default: `now()`]
+
+  Note: 'Aucune correction. Garde tous les champs livrés, y compris promo_code, absent de exploded_products.'
+}
+
+// ============================================================================
+// silver : table intermédiaire de l'énoncé
+// ============================================================================
+
+Table silver.exploded_products {
+  transaction_id text [not null]
+  store_id text
+  store_name text
+  store_country text
+  store_city text
+  store_type text
+  purchase_timestamp timestamp
+  payment_method text
+  currency text
+  total_amount "numeric(12,2)"
+  total_quantity_sold integer
+  discount_applied "numeric(12,2)"
+  return_status text
+  product_id text [not null]
+  product_name text
+  products_category text
+  quantity integer
+  price "numeric(12,2)"
+
+  indexes {
+    (transaction_id, product_id) [pk]
+  }
+
+  Note: 'Table intermédiaire imposée par l énoncé : 18 colonnes, noms identiques. Montants en numeric au lieu de FLOAT, pour des calculs exacts. Une ligne par article vendu.'
+}
+
+// ============================================================================
+// silver : tables du MCD
+// ============================================================================
+
+Table silver.devise {
+  code_devise char(3) [pk, note: 'ISO 4217']
+}
+
+Table silver.pays {
+  code_pays char(2) [pk, note: 'ISO 3166-1 alpha-2']
+  nom_pays text [not null, note: 'En français']
+  nom_pays_source text [not null, unique, note: 'Tel que livré, en anglais']
+  code_devise char(3) [not null]
+}
+
+Table silver.ville {
+  code_ville serial [pk]
+  nom_ville text [not null]
+  code_pays char(2) [not null]
+
+  indexes {
+    (nom_ville, code_pays) [unique]
+  }
+}
+
+Table silver.magasin {
+  code_magasin serial [pk]
+  nom_enseigne text [not null]
+  code_ville integer [not null]
+
+  indexes {
+    (nom_enseigne, code_ville) [unique]
+  }
+
+  Note: 'Un magasin = une enseigne dans une ville (RP01, contrat 5.2).'
+}
+
+Table silver.categorie {
+  code_categorie serial [pk]
+  nom_categorie text [not null, unique]
+}
+
+Table silver.produit {
+  code_produit text [pk, note: 'P + 3 chiffres']
+  nom_produit text [not null]
+  code_categorie integer [not null]
+}
+
+Table silver.moyen_paiement {
+  libelle_moyen text [pk]
+}
+
+Table silver.code_promo {
+  code_promo text [pk, note: 'UNKNOWN pour une promo sans code (RP02)']
+}
+
+Table silver.ticket_vente {
+  num_ticket text [pk, note: 'transaction_id']
+  date_heure_achat timestamp [not null]
+  montant_total "numeric(12,2)" [not null, note: 'Brut, en devise locale']
+  montant_remise "numeric(12,2)" [not null]
+  indicateur_promo boolean [not null]
+  statut_retour text [not null]
+  type_magasin text [not null, note: 'Attribut du ticket (RP09)']
+  code_magasin integer [not null]
+  libelle_moyen text [not null]
+  code_promo text [note: 'Vide si pas de promotion']
+  store_id_source text [note: 'Conservé pour la traçabilité, jamais utilisé comme clé (RP01)']
+  livraison_id integer [not null]
+}
+
+Table silver.ligne_vente {
+  num_ticket text [not null]
+  code_produit text [not null]
+  quantite integer [not null]
+  prix_unitaire "numeric(12,2)" [not null, note: 'Prix de la ligne, ajusté au coût de la vie par pays']
+
+  indexes {
+    (num_ticket, code_produit) [pk]
+  }
+
+  Note: 'Association CONTENIR du MCD.'
+}
+
+// ============================================================================
+// gold : tables d'analyse de l'énoncé
+// ============================================================================
+
+Table gold.store_sales_summary {
+  store_id text
+  store_name text
+  store_country text
+  store_city text
+  store_type text
+  total_sales_amount "numeric(12,2)"
+  total_quantity_sold integer
+
+  indexes {
+    (store_id, store_name, store_country, store_city, store_type) [pk]
+  }
+
+  Note: 'Grain imposé par l énoncé. Q1 et Q3 sont aussi calculées sur silver.magasin, avec réserve (contrat 5.2).'
+}
+
+Table gold.daily_sales_country_currency {
+  purchase_date date
+  store_country text
+  currency text
+  daily_total_sales "numeric(12,2)"
+  number_of_transactions integer
+  average_transaction_value "numeric(12,2)"
+
+  indexes {
+    (purchase_date, store_country, currency) [pk]
+  }
+}
+
+Table gold.payment_method_analysis {
+  payment_method text [pk]
+  total_transactions integer
+  total_sales_amount "numeric(12,2)"
+  average_discount "numeric(12,2)"
+  return_rate "numeric(5,2)" [note: 'Pourcentage, de 0 à 100']
+  average_items_per_transaction "numeric(6,2)"
+}
+
+// ============================================================================
+// Relations (le côté "1,1" du MCD porte la clé étrangère)
+// ============================================================================
+
+Ref: ops.journal_controles.livraison_id > ops.journal_livraisons.livraison_id
+Ref: bronze.pos_sales_raw.livraison_id > ops.journal_livraisons.livraison_id
+Ref: silver.ticket_vente.livraison_id > ops.journal_livraisons.livraison_id
+
+// UTILISER : PAYS 1,1 / DEVISE 0,n
+Ref: silver.pays.code_devise > silver.devise.code_devise
+// APPARTENIR : VILLE 1,1 / PAYS 0,n
+Ref: silver.ville.code_pays > silver.pays.code_pays
+// SITUER : MAGASIN 1,1 / VILLE 0,n
+Ref: silver.magasin.code_ville > silver.ville.code_ville
+// REGROUPER : PRODUIT 1,1 / CATEGORIE 0,n
+Ref: silver.produit.code_categorie > silver.categorie.code_categorie
+// ENREGISTRER : TICKET 1,1 / MAGASIN 0,n
+Ref: silver.ticket_vente.code_magasin > silver.magasin.code_magasin
+// PAYER : TICKET 1,1 / MOYEN_PAIEMENT 0,n
+Ref: silver.ticket_vente.libelle_moyen > silver.moyen_paiement.libelle_moyen
+// BENEFICIER : TICKET 0,1 / CODE_PROMO 0,n (clé étrangère facultative)
+Ref: silver.ticket_vente.code_promo > silver.code_promo.code_promo
+// CONTENIR : TICKET 1,n / PRODUIT 0,n (association porteuse -> table ligne_vente)
+Ref: silver.ligne_vente.num_ticket > silver.ticket_vente.num_ticket
+Ref: silver.ligne_vente.code_produit > silver.produit.code_produit
