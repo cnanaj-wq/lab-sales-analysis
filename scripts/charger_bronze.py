@@ -13,19 +13,18 @@ Lancement depuis la racine du projet :
 import hashlib
 import json
 import sys
-from datetime import datetime
 from pathlib import Path
 
 from psycopg2.extras import Json, execute_values
 
 from connexion import connect
+from messages import log, stop
 
 # --- Constantes ---------------------------------------------------------------
 
 DEFAULT_SOURCE_FILE = Path("data") / "raw" / "pos_sales_data_30k.json"
 ARCHIVE_DIR = Path("data") / "archive"
 BATCH_SIZE = 1000
-TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 STATUS_PUBLISHED = "publiée"
 STATUS_ALREADY_LOADED = "déjà intégrée"
@@ -38,21 +37,6 @@ STATUS_REJECTED = "refusée"
 def file_hash(content):
     """Renvoie l'empreinte SHA-256 d'un contenu, en 64 caractères hexadécimaux."""
     return hashlib.sha256(content).hexdigest()
-
-
-# --- Messages horodatés -------------------------------------------------------
-
-
-def log(message):
-    """Affiche un message d'information précédé de l'heure."""
-    now = datetime.now().strftime(TIMESTAMP_FORMAT)
-    print(f"{now} {message}")
-
-
-def stop(message):
-    """Arrête le script en affichant l'heure et le motif de l'arrêt."""
-    now = datetime.now().strftime(TIMESTAMP_FORMAT)
-    sys.exit(f"{now} Arrêt : {message}")
 
 
 # --- Contrôle du fichier source -----------------------------------------------
