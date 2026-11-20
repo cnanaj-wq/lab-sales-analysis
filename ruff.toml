@@ -1,0 +1,4 @@
+# Réglages de Ruff pour le projet Lab Sales Analysis.
+# Les modules du projet (connexion.py...) sont dans scripts/ :
+# Ruff les range dans le groupe d'imports du projet après les paquets installés.
+src = [".", "scripts"]
