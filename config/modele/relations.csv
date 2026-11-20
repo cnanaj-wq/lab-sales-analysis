@@ -1,0 +1,3 @@
+table;colonne;table_reference;colonne_reference
+ops.journal_controles;livraison_id;ops.journal_livraisons;livraison_id
+bronze.pos_sales_raw;livraison_id;ops.journal_livraisons;livraison_id
