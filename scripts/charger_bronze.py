@@ -12,7 +12,6 @@ Lancement depuis la racine du projet :
 
 import hashlib
 import json
-import shutil
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -171,3 +170,11 @@ connection.close()
 ignored = len(tickets) - len(inserted)
 log(f"livraison {delivery_id} publiée : {len(inserted)} tickets chargés dans bronze.")
 log(f"{ignored} tickets déjà présents, ignorés.")
+
+# --- Archive du fichier -------------------------------------------------------
+
+ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+archive_file = ARCHIVE_DIR / f"{fingerprint}.json"
+if not archive_file.exists():
+    archive_file.write_bytes(content)
+log(f"fichier archivé : {archive_file}")

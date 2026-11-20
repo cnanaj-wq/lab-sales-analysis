@@ -31,7 +31,7 @@ create table if not exists ops.journal_livraisons (
 );
 comment on column ops.journal_livraisons.livraison_id is 'Numéro de livraison, attribué automatiquement';
 comment on column ops.journal_livraisons.nom_fichier is 'Nom du fichier reçu';
-comment on column ops.journal_livraisons.empreinte_fichier is 'Empreinte SHA-256 du fichier, détecte un fichier déjà intégré';
+comment on column ops.journal_livraisons.empreinte_fichier is 'Empreinte SHA-256 du fichier, détecte un fichier déjà intégré. Nom de l''archive : data/archive/<empreinte>.json';
 comment on column ops.journal_livraisons.journee_vente is 'Journée couverte, vide pour la reprise d''historique';
 comment on column ops.journal_livraisons.recu_le is 'Date et heure de réception du fichier';
 comment on column ops.journal_livraisons.traite_le is 'Date et heure de fin du traitement';
