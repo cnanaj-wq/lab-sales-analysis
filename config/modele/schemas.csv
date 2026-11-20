@@ -1,0 +1,5 @@
+schema;ordre;description
+ops;1;Journal des livraisons et des contrôles qualité
+bronze;2;Tickets tels que livrés, sans correction
+silver;3;Données contrôlées : table intermédiaire et modèle métier
+gold;4;Tables d'analyse qui répondent aux 12 questions
