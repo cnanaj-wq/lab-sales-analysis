@@ -91,7 +91,7 @@ Règles appliquées par `propose_sql_type` :
 | --- | --- |
 | `texte` | `text` |
 | `entier` | `integer` |
-| `decimal`, ou `entier` et `decimal` mélangés | `numeric(12,2)` |
+| `decimal`, ou `entier` et `decimal` mélangés | `float`, comme dans l'énoncé |
 | `horodatage` | `timestamp` |
 | `booleen` | `boolean` |
 | `liste` ou `objet` | `jsonb` |

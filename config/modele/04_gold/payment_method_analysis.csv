@@ -1,7 +1,7 @@
 colonne;type_sql;obligatoire;cle_primaire;champ_source;description
 payment_method;text;oui;oui;;Méthode de paiement utilisée
 total_transactions;integer;non;non;;Nombre de tickets distincts
-total_sales_amount;numeric(12,2);non;non;;Montant total des ventes, une fois par ticket
-average_discount;numeric(12,2);non;non;;Remise moyenne par ticket
-return_rate;numeric(5,2);non;non;;Pourcentage de tickets retournés, de 0 à 100
-average_items_per_transaction;numeric(6,2);non;non;;Nombre moyen d'articles par ticket
+total_sales_amount;float;non;non;;Montant total des ventes, une fois par ticket
+average_discount;float;non;non;;Remise moyenne par ticket
+return_rate;float;non;non;;Pourcentage de tickets retournés, de 0 à 100
+average_items_per_transaction;float;non;non;;Nombre moyen d'articles par ticket

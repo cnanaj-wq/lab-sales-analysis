@@ -24,7 +24,7 @@ MISSING_VALUES = (None, "", [])
 SQL_TYPES = {
     "texte": "text",
     "entier": "integer",
-    "decimal": "numeric(12,2)",
+    "decimal": "float",
     "horodatage": "timestamp",
     "booleen": "boolean",
     "liste": "jsonb",
@@ -82,7 +82,7 @@ def update_stats(stats, value):
 def propose_sql_type(types):
     """Propose un type PostgreSQL à partir des types détectés d'un champ."""
     if types == {"entier", "decimal"}:
-        return "numeric(12,2)"
+        return "float"
     if len(types) == 1:
         detected_type = list(types)[0]
         return SQL_TYPES[detected_type]

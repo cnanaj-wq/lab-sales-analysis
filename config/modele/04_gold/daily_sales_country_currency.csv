@@ -2,6 +2,6 @@ colonne;type_sql;obligatoire;cle_primaire;champ_source;description
 purchase_date;date;oui;oui;;Date de la transaction, sans l'heure
 store_country;text;oui;oui;;Pays du magasin
 currency;text;oui;oui;;Devise locale utilisée
-daily_total_sales;numeric(12,2);non;non;;Total des ventes de la journée, une fois par ticket
+daily_total_sales;float;non;non;;Total des ventes de la journée, une fois par ticket
 number_of_transactions;integer;non;non;;Nombre de tickets distincts
-average_transaction_value;numeric(12,2);non;non;;Valeur moyenne d'un ticket
+average_transaction_value;float;non;non;;Valeur moyenne d'un ticket

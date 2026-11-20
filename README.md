@@ -74,7 +74,7 @@ Le modèle physique de données (MPD) traduit le MCD en tables PostgreSQL. Il es
 
 Choix de modélisation :
 
-- les colonnes des tables demandées par l'énoncé sont reprises à l'identique, à une exception près : les montants sont en `numeric` et non en `FLOAT`, pour des calculs exacts au centime ;
+- les colonnes des tables demandées par l'énoncé sont reprises à l'identique, noms et types compris : les montants sont en `FLOAT`, comme dans l'énoncé ;
 - `bronze` conserve le code promo, absent de `exploded_products` ;
 - `store_sales_summary` respecte le grain imposé par l'énoncé (`store_id`). Les questions sur les magasins sont aussi calculées sur `silver.magasin`, avec une réserve, car `store_id` n'identifie pas un magasin unique.
 
@@ -160,7 +160,7 @@ Les données sont conservées dans des volumes Docker. `docker compose down -v` 
 | [Profilage du fichier source](docs/02_profilage_source.md) | Résultats des contrôles S1 à D6, anomalies, limites et règles proposées pour le contrat de données | 0.2 | 2026-11-19 |
 | [Modèle conceptuel de données](docs/modeles/mcd.excalidraw.svg) | Entités, associations et cardinalités du domaine des ventes (Merise) | 0.1 | 2026-11-19 |
 | [Contrat de données](docs/03_contrat_donnees.md) | Livraison, schéma source → MCD, valeurs de référence, identification, contrôles de qualité CQ01 à CQ28 et traitement des écarts | 0.1 | 2026-11-19 |
-| [Modèle physique de données](docs/modeles/mpd.dbml) | Tables PostgreSQL, clés et relations, rangées en couches bronze, silver, gold et ops | 0.1 | 2026-11-19 |
+| [Modèle physique de données](docs/modeles/mpd.dbml) | Tables PostgreSQL, clés et relations, rangées en couches bronze, silver, gold et ops | 0.2 | 2026-11-20 |
 | [Environnement Docker](docker-compose.yml) | Services PostgreSQL et Airflow, ports, volumes et dépendances de démarrage | 0.1 | 2026-11-19 |
 
 ## État d'avancement

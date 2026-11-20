@@ -1,5 +1,5 @@
 // Modèle physique de données - Lab Sales Analysis
-// Brouillon v0.1 - 2026-11-19 - Cédric NANA
+// Brouillon v0.2 - 2026-11-20 - Cédric NANA (montants en FLOAT, comme l'énoncé)
 // À coller dans https://dbdiagram.io pour obtenir le diagramme.
 //
 // Architecture médaillon :
@@ -69,21 +69,21 @@ Table silver.exploded_products {
   purchase_timestamp timestamp
   payment_method text
   currency text
-  total_amount "numeric(12,2)"
+  total_amount float
   total_quantity_sold integer
-  discount_applied "numeric(12,2)"
+  discount_applied float
   return_status text
   product_id text [not null]
   product_name text
   products_category text
   quantity integer
-  price "numeric(12,2)"
+  price float
 
   indexes {
     (transaction_id, product_id) [pk]
   }
 
-  Note: 'Table intermédiaire imposée par l énoncé : 18 colonnes, noms identiques. Montants en numeric au lieu de FLOAT, pour des calculs exacts. Une ligne par article vendu.'
+  Note: 'Table intermédiaire imposée par l énoncé : 18 colonnes, noms et types identiques (montants en FLOAT). Une ligne par article vendu.'
 }
 
 // ============================================================================
@@ -145,8 +145,8 @@ Table silver.code_promo {
 Table silver.ticket_vente {
   num_ticket text [pk, note: 'transaction_id']
   date_heure_achat timestamp [not null]
-  montant_total "numeric(12,2)" [not null, note: 'Brut, en devise locale']
-  montant_remise "numeric(12,2)" [not null]
+  montant_total float [not null, note: 'Brut, en devise locale']
+  montant_remise float [not null]
   indicateur_promo boolean [not null]
   statut_retour text [not null]
   type_magasin text [not null, note: 'Attribut du ticket (RP09)']
@@ -161,7 +161,7 @@ Table silver.ligne_vente {
   num_ticket text [not null]
   code_produit text [not null]
   quantite integer [not null]
-  prix_unitaire "numeric(12,2)" [not null, note: 'Prix de la ligne, ajusté au coût de la vie par pays']
+  prix_unitaire float [not null, note: 'Prix de la ligne, ajusté au coût de la vie par pays']
 
   indexes {
     (num_ticket, code_produit) [pk]
@@ -180,7 +180,7 @@ Table gold.store_sales_summary {
   store_country text
   store_city text
   store_type text
-  total_sales_amount "numeric(12,2)"
+  total_sales_amount float
   total_quantity_sold integer
 
   indexes {
@@ -194,9 +194,9 @@ Table gold.daily_sales_country_currency {
   purchase_date date
   store_country text
   currency text
-  daily_total_sales "numeric(12,2)"
+  daily_total_sales float
   number_of_transactions integer
-  average_transaction_value "numeric(12,2)"
+  average_transaction_value float
 
   indexes {
     (purchase_date, store_country, currency) [pk]
@@ -206,10 +206,10 @@ Table gold.daily_sales_country_currency {
 Table gold.payment_method_analysis {
   payment_method text [pk]
   total_transactions integer
-  total_sales_amount "numeric(12,2)"
-  average_discount "numeric(12,2)"
-  return_rate "numeric(5,2)" [note: 'Pourcentage, de 0 à 100']
-  average_items_per_transaction "numeric(6,2)"
+  total_sales_amount float
+  average_discount float
+  return_rate float [note: 'Pourcentage, de 0 à 100']
+  average_items_per_transaction float
 }
 
 // ============================================================================

@@ -5,10 +5,10 @@ ticket;store_name;texte;text;30000;0;0.0;16;Active Life
 ticket;store_country;texte;text;30000;0;0.0;20;Canada
 ticket;store_city;texte;text;30000;0;0.0;16;Montreal
 ticket;total_quantity_sold;entier;integer;30000;0;0.0;2;8
-ticket;total_amount;decimal;numeric(12,2);30000;0;0.0;7;845.5
+ticket;total_amount;decimal;float;30000;0;0.0;7;845.5
 ticket;promo_code;liste;jsonb;30000;0;0.0;20;"[""no"", null]"
 ticket;payment_method;texte;text;30000;0;0.0;23;Mastercard
-ticket;discount_applied;decimal;numeric(12,2);30000;0;0.0;7;15.52
+ticket;discount_applied;decimal;float;30000;0;0.0;7;15.52
 ticket;store_type;texte;text;30000;0;0.0;16;Mall
 ticket;purchase_timestamp;horodatage;timestamp;30000;0;0.0;19;2024-07-16 15:39:37
 ticket;return_status;texte;text;30000;0;0.0;12;Returned
@@ -17,4 +17,4 @@ article;product_id;texte;text;59928;0;0.0;4;P006
 article;product_name;texte;text;59928;0;0.0;20;Cycling Helmet
 article;products_category;texte;text;59928;0;0.0;11;Equipment
 article;quantity;entier;integer;59928;0;0.0;1;4
-article;price;decimal;numeric(12,2);59928;0;0.0;5;142.5
+article;price;decimal;float;59928;0;0.0;5;142.5

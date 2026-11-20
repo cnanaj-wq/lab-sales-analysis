@@ -8,12 +8,12 @@ store_type;text;non;non;ticket.store_type;Type de magasin
 purchase_timestamp;timestamp;non;non;ticket.purchase_timestamp;Date et heure de l'achat
 payment_method;text;non;non;ticket.payment_method;Moyen de paiement
 currency;text;non;non;ticket.currency;Devise du ticket (ISO 4217)
-total_amount;numeric(12,2);non;non;ticket.total_amount;Montant total du ticket, en devise locale
+total_amount;float;non;non;ticket.total_amount;Montant total du ticket, en devise locale
 total_quantity_sold;integer;non;non;ticket.total_quantity_sold;Nombre total d'articles du ticket
-discount_applied;numeric(12,2);non;non;ticket.discount_applied;Remise appliquée au ticket
+discount_applied;float;non;non;ticket.discount_applied;Remise appliquée au ticket
 return_status;text;non;non;ticket.return_status;Statut de retour du ticket
 product_id;text;oui;oui;article.product_id;Code du produit
 product_name;text;non;non;article.product_name;Nom du produit
 products_category;text;non;non;article.products_category;Catégorie du produit
 quantity;integer;non;non;article.quantity;Quantité vendue sur la ligne
-price;numeric(12,2);non;non;article.price;Prix unitaire sur la ligne
+price;float;non;non;article.price;Prix unitaire sur la ligne
