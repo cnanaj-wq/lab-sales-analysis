@@ -25,6 +25,26 @@ MODEL_FILE = Path("config") / "modele" / "03_silver" / "exploded_products.csv"
 TARGET_TABLE = "silver.exploded_products"
 BATCH_SIZE = 1000
 
+# --- Lecture du modèle de la table --------------------------------------------
+
+if not MODEL_FILE.is_file():
+    stop(f"modèle de la table introuvable ({MODEL_FILE}).")
+
+with MODEL_FILE.open(encoding="utf-8", newline="") as file:
+    model = list(csv.DictReader(file, delimiter=";"))
+
+columns = []
+sources = []
+primary_key = []
+for line in model:
+    level, field = line["champ_source"].split(".", 1)
+    if level not in ("ticket", "article"):
+        stop(f"champ_source inconnu pour {line['colonne']} : {line['champ_source']}.")
+    columns.append(line["colonne"])
+    sources.append((level, field))
+    if line["cle_primaire"] == "oui":
+        primary_key.append(line["colonne"])
+
 # --- Lecture des tickets de bronze --------------------------------------------
 
 connection = connect()
@@ -57,25 +77,29 @@ log(f"{len(tickets)} tickets lus dans bronze, à éclater en articles.")
 rows = []
 for ticket in tickets:
     for article in ticket.get("products") or []:
-        row = (
-            ticket["transaction_id"],
-            ticket["store_id"],
-            article["product_id"],
-        )
+        row = []
+        for level, field in sources:
+            if level == "ticket":
+                row.append(ticket.get(field))
+            else:
+                row.append(article.get(field))
         rows.append(row)
 
 log(f"{len(rows)} articles prêts à insérer dans silver.")
 
 # --- Insertion dans silver : tout ou rien -------------------------------------
 
+column_list = ", ".join(columns)
+key_list = ", ".join(primary_key)
+
 try:
     with connection, connection.cursor() as cursor:
         inserted = execute_values(
             cursor,
             f"""
-            insert into {TARGET_TABLE} (transaction_id, store_id, product_id)
+            insert into {TARGET_TABLE} ({column_list})
             values %s
-            on conflict (transaction_id, product_id) do nothing
+            on conflict ({key_list}) do nothing
             returning transaction_id
             """,
             rows,
