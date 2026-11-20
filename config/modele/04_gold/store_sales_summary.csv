@@ -1,0 +1,8 @@
+colonne;type_sql;obligatoire;cle_primaire;champ_source;description
+store_id;text;oui;oui;;Identifiant du magasin, granularité imposée par l'énoncé
+store_name;text;oui;oui;;Nom du magasin
+store_country;text;oui;oui;;Pays du magasin
+store_city;text;oui;oui;;Ville du magasin
+store_type;text;oui;oui;;Type de magasin
+total_sales_amount;numeric(12,2);non;non;;Somme de total_amount, comptée une fois par ticket
+total_quantity_sold;integer;non;non;;Somme des quantités vendues

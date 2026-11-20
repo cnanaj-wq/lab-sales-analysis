@@ -1,0 +1,6 @@
+colonne;type_sql;obligatoire;cle_primaire;champ_source;description
+livraison_id;integer;oui;oui;;Livraison contrôlée
+code_controle;text;oui;oui;;Code du contrôle, de CQ01 à CQ28
+resultat;text;oui;non;;Réussi, avertissement ou échec
+nb_ecarts;integer;oui;non;;Nombre de lignes en écart
+exemples;text;non;non;;Au plus 10 exemples d'écarts

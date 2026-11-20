@@ -1,0 +1,9 @@
+colonne;type_sql;obligatoire;cle_primaire;champ_source;description
+livraison_id;serial;oui;oui;;Numéro de livraison, attribué automatiquement
+nom_fichier;text;oui;non;;Nom du fichier reçu
+empreinte_fichier;char(64);oui;non;;Empreinte SHA-256 du fichier, détecte un fichier déjà intégré
+journee_vente;date;non;non;;Journée couverte, vide pour la reprise d'historique
+recu_le;timestamptz;oui;non;;Date et heure de réception du fichier
+traite_le;timestamptz;non;non;;Date et heure de fin du traitement
+nb_tickets;integer;non;non;;Nombre de tickets lus dans le fichier
+statut;text;oui;non;;Publiée, publiée avec avertissement, refusée, déjà intégrée ou manquante

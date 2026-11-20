@@ -1,0 +1,5 @@
+colonne;type_sql;obligatoire;cle_primaire;champ_source;description
+transaction_id;text;oui;oui;ticket.transaction_id;Identifiant du ticket, extrait du document
+livraison_id;integer;oui;non;;Livraison qui a apporté le ticket
+document;jsonb;oui;non;ticket;Ticket complet tel que livré, promo_code compris
+charge_le;timestamptz;oui;non;;Date et heure de chargement
