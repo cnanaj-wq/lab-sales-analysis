@@ -118,6 +118,108 @@ comment on column gold.daily_sales_country_currency.daily_total_sales is 'Total 
 comment on column gold.daily_sales_country_currency.number_of_transactions is 'Nombre de tickets distincts';
 comment on column gold.daily_sales_country_currency.average_transaction_value is 'Valeur moyenne d''un ticket';
 
+create table if not exists gold.dim_date (
+    date_id date not null,
+    annee integer not null,
+    trimestre integer not null,
+    mois integer not null,
+    nom_mois text not null,
+    semaine_iso integer not null,
+    jour integer not null,
+    jour_semaine integer not null,
+    nom_jour text not null,
+    primary key (date_id)
+);
+comment on column gold.dim_date.date_id is 'Jour du calendrier, de la première à la dernière date d''achat, sans trou';
+comment on column gold.dim_date.annee is 'Année';
+comment on column gold.dim_date.trimestre is 'Trimestre, de 1 à 4';
+comment on column gold.dim_date.mois is 'Mois, de 1 à 12';
+comment on column gold.dim_date.nom_mois is 'Nom du mois en français';
+comment on column gold.dim_date.semaine_iso is 'Numéro de semaine ISO';
+comment on column gold.dim_date.jour is 'Jour du mois';
+comment on column gold.dim_date.jour_semaine is 'Jour de la semaine ISO, de 1 (lundi) à 7 (dimanche)';
+comment on column gold.dim_date.nom_jour is 'Nom du jour en français';
+
+create table if not exists gold.dim_magasin (
+    magasin_id integer not null,
+    enseigne text not null,
+    ville text not null,
+    pays text not null,
+    devise text not null,
+    primary key (magasin_id)
+);
+comment on column gold.dim_magasin.magasin_id is 'Clé technique du magasin, numérotée à la construction';
+comment on column gold.dim_magasin.enseigne is 'Enseigne du magasin (store_name)';
+comment on column gold.dim_magasin.ville is 'Ville du magasin (store_city) ';
+comment on column gold.dim_magasin.pays is 'Pays du magasin (store_country)';
+comment on column gold.dim_magasin.devise is 'Devise du pays (currency), une seule par pays';
+
+create table if not exists gold.dim_moyen_paiement (
+    moyen_paiement text not null,
+    famille text not null,
+    reseau text not null,
+    primary key (moyen_paiement)
+);
+comment on column gold.dim_moyen_paiement.moyen_paiement is 'Moyen de paiement (payment_method)';
+comment on column gold.dim_moyen_paiement.famille is 'Carte, Portefeuille mobile ou Espèces';
+comment on column gold.dim_moyen_paiement.reseau is 'Visa, Mastercard ou Aucun';
+
+create table if not exists gold.dim_produit (
+    produit_id text not null,
+    nom_produit text not null,
+    categorie text not null,
+    primary key (produit_id)
+);
+comment on column gold.dim_produit.produit_id is 'Code du produit (product_id)';
+comment on column gold.dim_produit.nom_produit is 'Nom du produit (product_name)';
+comment on column gold.dim_produit.categorie is 'Catégorie du produit (products_category)';
+
+create table if not exists gold.fait_ligne_vente (
+    ticket_id text not null,
+    produit_id text not null,
+    date_id date not null,
+    magasin_id integer not null,
+    moyen_paiement text not null,
+    quantite integer not null,
+    prix_unitaire float not null,
+    montant_ligne float not null,
+    est_retourne boolean not null,
+    primary key (ticket_id, produit_id)
+);
+comment on column gold.fait_ligne_vente.ticket_id is 'Identifiant du ticket (transaction_id)';
+comment on column gold.fait_ligne_vente.produit_id is 'Produit, lien vers dim_produit';
+comment on column gold.fait_ligne_vente.date_id is 'Jour de l''achat, lien vers dim_date';
+comment on column gold.fait_ligne_vente.magasin_id is 'Magasin, lien vers dim_magasin';
+comment on column gold.fait_ligne_vente.moyen_paiement is 'Moyen de paiement, lien vers dim_moyen_paiement';
+comment on column gold.fait_ligne_vente.quantite is 'Quantité vendue sur la ligne (quantity)';
+comment on column gold.fait_ligne_vente.prix_unitaire is 'Prix unitaire en devise locale (price)';
+comment on column gold.fait_ligne_vente.montant_ligne is 'Quantité multipliée par le prix unitaire, en devise locale';
+comment on column gold.fait_ligne_vente.est_retourne is 'Vrai si le ticket de la ligne est retourné';
+
+create table if not exists gold.fait_ticket (
+    ticket_id text not null,
+    date_id date not null,
+    magasin_id integer not null,
+    moyen_paiement text not null,
+    horodatage_achat timestamp not null,
+    type_magasin text not null,
+    montant_total float not null,
+    remise float not null,
+    quantite_totale integer not null,
+    est_retourne boolean not null,
+    primary key (ticket_id)
+);
+comment on column gold.fait_ticket.ticket_id is 'Identifiant du ticket (transaction_id)';
+comment on column gold.fait_ticket.date_id is 'Jour de l''achat, lien vers dim_date';
+comment on column gold.fait_ticket.magasin_id is 'Magasin, lien vers dim_magasin';
+comment on column gold.fait_ticket.moyen_paiement is 'Moyen de paiement, lien vers dim_moyen_paiement';
+comment on column gold.fait_ticket.horodatage_achat is 'Date et heure de l''achat (purchase_timestamp)';
+comment on column gold.fait_ticket.type_magasin is 'Type de magasin (store_type), propre au ticket : il varie pour un même magasin';
+comment on column gold.fait_ticket.montant_total is 'Montant du ticket en devise locale (total_amount), égal à la somme des montant_ligne';
+comment on column gold.fait_ticket.remise is 'Remise appliquée au ticket, en devise locale (discount_applied)';
+comment on column gold.fait_ticket.quantite_totale is 'Nombre d''articles du ticket (total_quantity_sold)';
+comment on column gold.fait_ticket.est_retourne is 'Vrai si le ticket est retourné (return_status = Returned)';
+
 create table if not exists gold.payment_method_analysis (
     payment_method text not null,
     total_transactions integer,
@@ -157,3 +259,17 @@ alter table ops.journal_controles drop constraint if exists fk_journal_controles
 alter table ops.journal_controles add constraint fk_journal_controles_livraison_id foreign key (livraison_id) references ops.journal_livraisons (livraison_id);
 alter table bronze.pos_sales_raw drop constraint if exists fk_pos_sales_raw_livraison_id;
 alter table bronze.pos_sales_raw add constraint fk_pos_sales_raw_livraison_id foreign key (livraison_id) references ops.journal_livraisons (livraison_id);
+alter table gold.fait_ticket drop constraint if exists fk_fait_ticket_date_id;
+alter table gold.fait_ticket add constraint fk_fait_ticket_date_id foreign key (date_id) references gold.dim_date (date_id);
+alter table gold.fait_ticket drop constraint if exists fk_fait_ticket_magasin_id;
+alter table gold.fait_ticket add constraint fk_fait_ticket_magasin_id foreign key (magasin_id) references gold.dim_magasin (magasin_id);
+alter table gold.fait_ticket drop constraint if exists fk_fait_ticket_moyen_paiement;
+alter table gold.fait_ticket add constraint fk_fait_ticket_moyen_paiement foreign key (moyen_paiement) references gold.dim_moyen_paiement (moyen_paiement);
+alter table gold.fait_ligne_vente drop constraint if exists fk_fait_ligne_vente_date_id;
+alter table gold.fait_ligne_vente add constraint fk_fait_ligne_vente_date_id foreign key (date_id) references gold.dim_date (date_id);
+alter table gold.fait_ligne_vente drop constraint if exists fk_fait_ligne_vente_magasin_id;
+alter table gold.fait_ligne_vente add constraint fk_fait_ligne_vente_magasin_id foreign key (magasin_id) references gold.dim_magasin (magasin_id);
+alter table gold.fait_ligne_vente drop constraint if exists fk_fait_ligne_vente_moyen_paiement;
+alter table gold.fait_ligne_vente add constraint fk_fait_ligne_vente_moyen_paiement foreign key (moyen_paiement) references gold.dim_moyen_paiement (moyen_paiement);
+alter table gold.fait_ligne_vente drop constraint if exists fk_fait_ligne_vente_produit_id;
+alter table gold.fait_ligne_vente add constraint fk_fait_ligne_vente_produit_id foreign key (produit_id) references gold.dim_produit (produit_id);

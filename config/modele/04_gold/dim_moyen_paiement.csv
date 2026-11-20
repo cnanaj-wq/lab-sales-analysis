@@ -1,0 +1,4 @@
+colonne;type_sql;obligatoire;cle_primaire;champ_source;description
+moyen_paiement;text;oui;oui;;Moyen de paiement (payment_method)
+famille;text;oui;non;;Carte, Portefeuille mobile ou Espèces
+reseau;text;oui;non;;Visa, Mastercard ou Aucun

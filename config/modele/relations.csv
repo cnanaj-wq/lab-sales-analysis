@@ -1,3 +1,10 @@
 table;colonne;table_reference;colonne_reference
 ops.journal_controles;livraison_id;ops.journal_livraisons;livraison_id
 bronze.pos_sales_raw;livraison_id;ops.journal_livraisons;livraison_id
+gold.fait_ticket;date_id;gold.dim_date;date_id
+gold.fait_ticket;magasin_id;gold.dim_magasin;magasin_id
+gold.fait_ticket;moyen_paiement;gold.dim_moyen_paiement;moyen_paiement
+gold.fait_ligne_vente;date_id;gold.dim_date;date_id
+gold.fait_ligne_vente;magasin_id;gold.dim_magasin;magasin_id
+gold.fait_ligne_vente;moyen_paiement;gold.dim_moyen_paiement;moyen_paiement
+gold.fait_ligne_vente;produit_id;gold.dim_produit;produit_id

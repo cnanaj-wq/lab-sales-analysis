@@ -1,0 +1,11 @@
+colonne;type_sql;obligatoire;cle_primaire;champ_source;description
+ticket_id;text;oui;oui;;Identifiant du ticket (transaction_id)
+date_id;date;oui;non;;Jour de l'achat, lien vers dim_date
+magasin_id;integer;oui;non;;Magasin, lien vers dim_magasin
+moyen_paiement;text;oui;non;;Moyen de paiement, lien vers dim_moyen_paiement
+horodatage_achat;timestamp;oui;non;;Date et heure de l'achat (purchase_timestamp)
+type_magasin;text;oui;non;;Type de magasin (store_type), propre au ticket : il varie pour un même magasin
+montant_total;float;oui;non;;Montant du ticket en devise locale (total_amount), égal à la somme des montant_ligne
+remise;float;oui;non;;Remise appliquée au ticket, en devise locale (discount_applied)
+quantite_totale;integer;oui;non;;Nombre d'articles du ticket (total_quantity_sold)
+est_retourne;boolean;oui;non;;Vrai si le ticket est retourné (return_status = Returned)

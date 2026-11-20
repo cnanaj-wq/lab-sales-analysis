@@ -1,0 +1,10 @@
+colonne;type_sql;obligatoire;cle_primaire;champ_source;description
+date_id;date;oui;oui;;Jour du calendrier, de la première à la dernière date d'achat, sans trou
+annee;integer;oui;non;;Année
+trimestre;integer;oui;non;;Trimestre, de 1 à 4
+mois;integer;oui;non;;Mois, de 1 à 12
+nom_mois;text;oui;non;;Nom du mois en français
+semaine_iso;integer;oui;non;;Numéro de semaine ISO
+jour;integer;oui;non;;Jour du mois
+jour_semaine;integer;oui;non;;Jour de la semaine ISO, de 1 (lundi) à 7 (dimanche)
+nom_jour;text;oui;non;;Nom du jour en français
