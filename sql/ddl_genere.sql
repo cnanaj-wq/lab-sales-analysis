@@ -1,4 +1,4 @@
--- Fichier généré par scripts/generer_ddl.py : ne pas modifier à la main.
+-- Fichier généré par scripts/03_generer_ddl.py : ne pas modifier à la main.
 
 -- Schéma ops
 create schema if not exists ops;

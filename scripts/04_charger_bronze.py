@@ -5,7 +5,7 @@ charge les tickets tels quels dans bronze.pos_sales_raw et trace la livraison
 dans ops.journal_livraisons. Le chargement se fait en une seule transaction :
 tout est chargé, ou rien.
 Lancement depuis la racine du projet :
-    python scripts/charger_bronze.py [chemin_du_fichier.json]
+    python scripts/04_charger_bronze.py [chemin_du_fichier.json]
 """
 
 # --- Imports ------------------------------------------------------------------

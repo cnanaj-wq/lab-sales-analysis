@@ -4,17 +4,17 @@ Ce dossier contient les scripts du pipeline. Les deux premiers travaillent sur l
 
 | Script | Question à laquelle il répond | Résultat |
 | --- | --- | --- |
-| [`profilage_source.py`](profilage_source.py) | Le fichier source est-il fiable, et quelles règles faut-il en tirer ? | Rapport affiché à l'écran, repris dans le [profilage](../docs/02_profilage_source.md) |
-| [`generer_modele_source.py`](generer_modele_source.py) | Quels champs contient le fichier, et avec quel type SQL les stocker ? | Fichier [`config/modele/source.csv`](../config/modele/source.csv) |
+| [`01_profilage_source.py`](01_profilage_source.py) | Le fichier source est-il fiable, et quelles règles faut-il en tirer ? | Rapport affiché à l'écran, repris dans le [profilage](../docs/02_profilage_source.md) |
+| [`02_generer_modele_source.py`](02_generer_modele_source.py) | Quels champs contient le fichier, et avec quel type SQL les stocker ? | Fichier [`config/modele/source.csv`](../config/modele/source.csv) |
 
 Lancement depuis la racine du projet :
 
 ```powershell
-python scripts/profilage_source.py
+python scripts/01_profilage_source.py
 ```
 
 ```powershell
-python scripts/generer_modele_source.py
+python scripts/02_generer_modele_source.py
 ```
 
 ## Place des scripts dans le pipeline
@@ -22,13 +22,13 @@ python scripts/generer_modele_source.py
 ```mermaid
 flowchart LR
     json[("Fichier source<br/>pos_sales_data_30k.json")]
-    prof["profilage_source.py"]
+    prof["01_profilage_source.py"]
     doc["docs/02_profilage_source.md<br/>anomalies et règles"]
     contrat["docs/03_contrat_donnees.md<br/>contrôles CQ01 à CQ28"]
-    gen["generer_modele_source.py"]
+    gen["02_generer_modele_source.py"]
     src["config/modele/source.csv<br/>types, vides, longueurs max"]
     tables["config/modele/0X_schema/*.csv<br/>définition des tables"]
-    ddl["generer_ddl.py<br/>à venir"]
+    ddl["03_generer_ddl.py<br/>à venir"]
     base[("Base ventes<br/>PostgreSQL")]
 
     json --> prof --> doc --> contrat
@@ -37,10 +37,10 @@ flowchart LR
     tables --> ddl --> base
 ```
 
-- `profilage_source.py` sert à **comprendre** le fichier : ses résultats ont servi à rédiger le document de profilage puis le contrat de données.
-- `generer_modele_source.py` sert à **construire** : sa fiche des champs sert de référence pour les types des tables décrites dans `config/modele/`.
+- `01_profilage_source.py` sert à **comprendre** le fichier : ses résultats ont servi à rédiger le document de profilage puis le contrat de données.
+- `02_generer_modele_source.py` sert à **construire** : sa fiche des champs sert de référence pour les types des tables décrites dans `config/modele/`.
 
-## `profilage_source.py` : contrôler le fichier source
+## `01_profilage_source.py` : contrôler le fichier source
 
 Le script lit le fichier une fois, puis réalise sept familles de contrôles, l'une après l'autre. Chaque contrôle porte un code repris dans le document de profilage.
 
@@ -60,7 +60,7 @@ flowchart TD
     D --> report(["Rapport affiché à l'écran<br/>→ docs/02_profilage_source.md"])
 ```
 
-## `generer_modele_source.py` : décrire les champs du fichier source
+## `02_generer_modele_source.py` : décrire les champs du fichier source
 
 Le script remplit une fiche par champ, en lisant chaque valeur une seule fois, puis écrit une ligne par fiche dans un CSV.
 

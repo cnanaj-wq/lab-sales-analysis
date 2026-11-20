@@ -49,11 +49,11 @@ Le fichier est en **lecture seule** : il n'est jamais modifié, ni par le script
 
 | Élément          | Valeur                                              |
 |------------------|-----------------------------------------------------|
-| Script           | `scripts/profilage_source.py`                       |
+| Script           | `scripts/01_profilage_source.py`                       |
 | Version          | commit `981a26e` de la branche `docs/modele-donnees` |
 | Langage          | Python 3.12.10, bibliothèque standard uniquement    |
 | Date d'exécution | 2026-11-19                                          |
-| Commande         | `python scripts/profilage_source.py`, depuis la racine du projet |
+| Commande         | `python scripts/01_profilage_source.py`, depuis la racine du projet |
 
 Chaque contrôle porte un identifiant, repris dans ce document et dans les messages du script :
 
@@ -219,7 +219,7 @@ Ces règles sont des **propositions** issues du profilage. Elles seront validée
 Depuis la racine du projet :
 
 ```bash
-python scripts/profilage_source.py
+python scripts/01_profilage_source.py
 ```
 
 ### 6.3 Résultat attendu

@@ -3,7 +3,7 @@
 Lit le fichier source et écrit config/modele/source.csv :
 un champ par ligne, avec son type détecté, sa longueur max et son taux de vides.
 Lancement depuis la racine du projet :
-    python scripts/generer_modele_source.py
+    python scripts/02_generer_modele_source.py
 """
 
 # --- Imports ------------------------------------------------------------------

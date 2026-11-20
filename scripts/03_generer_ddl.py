@@ -4,7 +4,7 @@ Lit config/modele/ : schemas.csv, puis un dossier par schéma (01_ops, 02_bronze
 avec un fichier CSV par table. Écrit sql/ddl_genere.sql, puis l'exécute dans la base.
 Option --vider : vide toutes les tables après la création (tests uniquement).
 Lancement depuis la racine du projet :
-    python scripts/generer_ddl.py [--vider]
+    python scripts/03_generer_ddl.py [--vider]
 """
 
 # --- Imports ------------------------------------------------------------------
@@ -108,7 +108,7 @@ for row in read_csv(SCHEMAS_FILE):
 
 # --- Génération du SQL --------------------------------------------------------
 
-sql = "-- Fichier généré par scripts/generer_ddl.py : ne pas modifier à la main.\n"
+sql = "-- Fichier généré par scripts/03_generer_ddl.py : ne pas modifier à la main.\n"
 nb_tables = 0
 tables = []
 for folder in sorted(MODEL_DIR.iterdir()):
