@@ -29,6 +29,7 @@ RESET_OPTION = "--vider"
 
 # --- Outils -------------------------------------------------------------------
 
+
 def read_csv(path):
     """Lit un fichier CSV du modèle et renvoie une liste de lignes."""
     with path.open(encoding="utf-8", newline="") as file:
@@ -54,6 +55,7 @@ def read_env(path):
 
 
 # --- SQL d'une table ----------------------------------------------------------
+
 
 def table_sql(schema, table, columns):
     """Renvoie le SQL qui crée une table et commente ses colonnes."""
@@ -81,6 +83,7 @@ def table_sql(schema, table, columns):
 
 
 # --- SQL d'une clé étrangère --------------------------------------------------
+
 
 def relation_sql(relation):
     """Renvoie le SQL qui ajoute une clé étrangère, en la recréant si elle existe."""
@@ -150,12 +153,11 @@ connection = psycopg2.connect(
     password=settings["POSTGRES_PASSWORD"],
 )
 
-with connection:
-    with connection.cursor() as cursor:
-        cursor.execute(sql)
-        print("Tables créées ou déjà présentes.")
-        if RESET_OPTION in sys.argv:
-            cursor.execute("truncate table " + ", ".join(tables) + " restart identity;")
-            print(f"{len(tables)} tables vidées.")
+with connection, connection.cursor() as cursor:
+    cursor.execute(sql)
+    print("Tables créées ou déjà présentes.")
+    if RESET_OPTION in sys.argv:
+        cursor.execute("truncate table " + ", ".join(tables) + " restart identity;")
+        print(f"{len(tables)} tables vidées.")
 
 connection.close()

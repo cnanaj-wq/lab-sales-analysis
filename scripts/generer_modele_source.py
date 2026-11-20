@@ -34,6 +34,7 @@ SQL_TYPES = {
 
 # --- Type d'une valeur --------------------------------------------------------
 
+
 def detect_type(value):
     """Renvoie le type d'une valeur JSON, avec les mots du modèle."""
     if value in MISSING_VALUES:
@@ -57,10 +58,16 @@ def detect_type(value):
 
 # --- Fiche de statistiques d'un champ -----------------------------------------
 
+
 def new_stats():
     """Crée la fiche vierge d'un champ : types, vides, longueur max, exemple."""
-    return {"types": set(), "nb_valeurs": 0, "nb_vides": 0,
-            "longueur_max": 0, "exemple": ""}
+    return {
+        "types": set(),
+        "nb_valeurs": 0,
+        "nb_vides": 0,
+        "longueur_max": 0,
+        "exemple": "",
+    }
 
 
 def update_stats(stats, value):
@@ -79,13 +86,14 @@ def update_stats(stats, value):
 
 # --- Type SQL proposé ---------------------------------------------------------
 
+
 def propose_sql_type(types):
     """Propose un type PostgreSQL à partir des types détectés d'un champ."""
     if types == {"entier", "decimal"}:
         return "float"
-    if len(types) == 1:
-        detected_type = list(types)[0]
-        return SQL_TYPES[detected_type]
+    for detected_type, sql_type in SQL_TYPES.items():
+        if types == {detected_type}:
+            return sql_type
     return "text"
 
 
@@ -113,8 +121,17 @@ for transaction in transactions:
 
 # --- Écriture du modèle -------------------------------------------------------
 
-HEADER = ["niveau", "champ", "types_detectes", "type_sql_propose",
-          "nb_valeurs", "nb_vides", "pct_vides", "longueur_max", "exemple"]
+HEADER = [
+    "niveau",
+    "champ",
+    "types_detectes",
+    "type_sql_propose",
+    "nb_valeurs",
+    "nb_vides",
+    "pct_vides",
+    "longueur_max",
+    "exemple",
+]
 
 OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
 
@@ -127,8 +144,17 @@ with OUTPUT_FILE.open("w", encoding="utf-8", newline="") as output:
         types_text = ",".join(sorted(stats["types"]))
         sql_type = propose_sql_type(stats["types"])
         pct_vides = round(100 * stats["nb_vides"] / stats["nb_valeurs"], 2)
-        row = [level, name, types_text, sql_type, stats["nb_valeurs"],
-               stats["nb_vides"], pct_vides, stats["longueur_max"], stats["exemple"]]
+        row = [
+            level,
+            name,
+            types_text,
+            sql_type,
+            stats["nb_valeurs"],
+            stats["nb_vides"],
+            pct_vides,
+            stats["longueur_max"],
+            stats["exemple"],
+        ]
         writer.writerow(row)
 
 print(f"{len(fields)} champs écrits dans {OUTPUT_FILE}")
