@@ -15,34 +15,48 @@ from messages import log, stop
 
 # --- Constantes ---------------------------------------------------------------
 
-SQL_DIR = Path("sql") / "gold"
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+SQL_DIR = PROJECT_DIR / "sql" / "gold"
 SQL_FILES = [
     "store_sales_summary.sql",
     "daily_sales_country_currency.sql",
     "payment_method_analysis.sql",
 ]
 
-# --- Lecture des requêtes SQL -------------------------------------------------
+# --- Construction des tables gold ---------------------------------------------
 
-queries = []
-for name in SQL_FILES:
-    sql_file = SQL_DIR / name
-    if not sql_file.is_file():
-        stop(f"requête SQL introuvable ({sql_file}).")
-    queries.append((name, sql_file.read_text(encoding="utf-8")))
 
-# --- Construction des tables gold : tout ou rien ------------------------------
+def main():
+    """Recalcule les 3 tables gold et renvoie le nombre de lignes de chacune."""
+    # Lecture des requêtes SQL
+    queries = []
+    for name in SQL_FILES:
+        sql_file = SQL_DIR / name
+        if not sql_file.is_file():
+            stop(f"requête SQL introuvable ({sql_file}).")
+        queries.append((name, sql_file.read_text(encoding="utf-8")))
 
-connection = connect()
+    # Construction des tables gold : tout ou rien
+    counts = {}
+    connection = connect()
 
-try:
-    with connection, connection.cursor() as cursor:
-        for name, query in queries:
-            cursor.execute(query)
-            log(f"{name} : {cursor.rowcount} lignes calculées.")
-except Exception as error:  # noqa: BLE001 - toute erreur annule la construction
+    try:
+        with connection, connection.cursor() as cursor:
+            for name, query in queries:
+                cursor.execute(query)
+                log(f"{name} : {cursor.rowcount} lignes calculées.")
+                if cursor.rowcount >= 0:
+                    counts[Path(name).stem] = cursor.rowcount
+    except Exception as error:  # noqa: BLE001 - toute erreur annule la construction
+        connection.close()
+        stop(f"construction annulée, les tables gold sont inchangées ({error}).")
+
     connection.close()
-    stop(f"construction annulée, les tables gold sont inchangées ({error}).")
+    log("3 tables gold publiées.")
+    return counts
 
-connection.close()
-log("3 tables gold publiées.")
+
+# --- Lancement depuis le terminal ---------------------------------------------
+
+if __name__ == "__main__":
+    main()

@@ -16,7 +16,8 @@ from messages import log, stop
 
 # --- Constantes ---------------------------------------------------------------
 
-SQL_DIR = Path("sql") / "gold_star_schema"
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+SQL_DIR = PROJECT_DIR / "sql" / "gold_star_schema"
 SQL_FILES = [
     "00_vider_star_schema.sql",
     "01_dim_date.sql",
@@ -27,27 +28,40 @@ SQL_FILES = [
     "06_fait_ligne_vente.sql",
 ]
 
-# --- Lecture des requêtes SQL -------------------------------------------------
+# --- Construction de l'étoile -------------------------------------------------
 
-queries = []
-for name in SQL_FILES:
-    sql_file = SQL_DIR / name
-    if not sql_file.is_file():
-        stop(f"requête SQL introuvable ({sql_file}).")
-    queries.append((name, sql_file.read_text(encoding="utf-8")))
 
-# --- Construction de l'étoile : tout ou rien ----------------------------------
+def main():
+    """Recalcule les 6 tables de l'étoile et renvoie le nombre de lignes de chacune."""
+    # Lecture des requêtes SQL
+    queries = []
+    for name in SQL_FILES:
+        sql_file = SQL_DIR / name
+        if not sql_file.is_file():
+            stop(f"requête SQL introuvable ({sql_file}).")
+        queries.append((name, sql_file.read_text(encoding="utf-8")))
 
-connection = connect()
+    # Construction de l'étoile : tout ou rien
+    counts = {}
+    connection = connect()
 
-try:
-    with connection, connection.cursor() as cursor:
-        for name, query in queries:
-            cursor.execute(query)
-            log(f"{name} : {cursor.rowcount} lignes traitées.")
-except Exception as error:  # noqa: BLE001 - toute erreur annule la construction
+    try:
+        with connection, connection.cursor() as cursor:
+            for name, query in queries:
+                cursor.execute(query)
+                log(f"{name} : {cursor.rowcount} lignes traitées.")
+                if cursor.rowcount >= 0:
+                    counts[Path(name).stem] = cursor.rowcount
+    except Exception as error:  # noqa: BLE001 - toute erreur annule la construction
+        connection.close()
+        stop(f"construction annulée, l'étoile est inchangée ({error}).")
+
     connection.close()
-    stop(f"construction annulée, l'étoile est inchangée ({error}).")
+    log("modèle en étoile publié.")
+    return counts
 
-connection.close()
-log("modèle en étoile publié.")
+
+# --- Lancement depuis le terminal ---------------------------------------------
+
+if __name__ == "__main__":
+    main()
