@@ -1,12 +1,14 @@
 """Connexion à la base des ventes (Lab Sales Analysis).
 
-Lit les paramètres de connexion hors du dépôt et ouvre la connexion
-à la base des ventes. À importer depuis un autre script :
+Dans Airflow : utilise la connexion Airflow « postgres_ventes ».
+Sur le PC : lit les paramètres dans data_connection, hors du dépôt.
+À importer depuis un autre script :
     from connexion import connect
 """
 
 # --- Imports ------------------------------------------------------------------
 
+import os
 import sys
 from pathlib import Path
 
@@ -14,7 +16,9 @@ import psycopg2
 
 # --- Constantes ---------------------------------------------------------------
 
-ENV_FILE = Path("..") / "data_connection" / "lab_sales_postgres_ventes.env"
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+ENV_FILE = PROJECT_DIR.parent / "data_connection" / "lab_sales_postgres_ventes.env"
+AIRFLOW_CONN_ID = "postgres_ventes"
 
 
 # --- Lecture des secrets ------------------------------------------------------
@@ -38,6 +42,21 @@ def read_env(path):
 
 def connect():
     """Ouvre une connexion à la base des ventes et la renvoie."""
+    # Dans le conteneur Airflow : paramètres lus dans la connexion Airflow
+    # (on ouvre la connexion avec psycopg2, car les scripts utilisent execute_values)
+    if "AIRFLOW_CONN_POSTGRES_VENTES" in os.environ:
+        from airflow.providers.postgres.hooks.postgres import PostgresHook
+
+        airflow_conn = PostgresHook.get_connection(AIRFLOW_CONN_ID)
+        return psycopg2.connect(
+            host=airflow_conn.host,
+            port=airflow_conn.port,
+            dbname=airflow_conn.schema,
+            user=airflow_conn.login,
+            password=airflow_conn.password,
+        )
+
+    # Sur le PC : fichier .env rangé hors du dépôt
     if not ENV_FILE.exists():
         sys.exit(f"Arrêt : fichier de connexion introuvable ({ENV_FILE}).")
     settings = read_env(ENV_FILE)
