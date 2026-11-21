@@ -1,0 +1,20 @@
+# Source de données : journaux du pipeline (schéma ops de la base des ventes).
+# Rôle en lecture seule ; mot de passe et nom de base lus dans les variables
+# d'environnement (fichier data_connection/lab_sales_grafana.env).
+apiVersion: 1
+
+datasources:
+  - name: Journaux Lab Sales
+    uid: lab-sales-ops
+    type: grafana-postgresql-datasource
+    url: postgres-ventes:5432
+    user: grafana_lecture
+    isDefault: true
+    editable: false
+    jsonData:
+      database: $GRAFANA_DB_NAME
+      sslmode: disable
+      postgresVersion: 1700
+      timescaledb: false
+    secureJsonData:
+      password: $GRAFANA_LECTURE_PASSWORD

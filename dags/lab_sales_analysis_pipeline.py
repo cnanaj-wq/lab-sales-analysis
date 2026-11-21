@@ -190,7 +190,7 @@ DEFAULT_ARGS = {
 
 
 @dag(
-    dag_id="lab_sales_pipeline",
+    dag_id="lab_sales_analysis_pipeline",
     description="Ventes : bronze → silver → porte RC01 (bronze = silver)",
     schedule="@daily",
     start_date=datetime(2026, 11, 1),
@@ -207,7 +207,7 @@ DEFAULT_ARGS = {
         ),
     },
 )
-def lab_sales_pipeline():
+def lab_sales_analysis_pipeline():
     @task
     def charger_bronze():
         return run_script("04_charger_bronze")
@@ -256,4 +256,4 @@ def lab_sales_pipeline():
     quality_gate_rc01(bronze, silver)
 
 
-lab_sales_pipeline()
+lab_sales_analysis_pipeline()

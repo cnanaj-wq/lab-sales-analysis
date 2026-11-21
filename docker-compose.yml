@@ -12,6 +12,8 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
     AIRFLOW__CORE__DEFAULT_TIMEZONE: Europe/Paris
     AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "true"
+    # Messagerie de test : les mails partent vers Mailpit, sans mot de passe
+    AIRFLOW_CONN_SMTP_DEFAULT: '{"conn_type": "smtp", "host": "mailpit", "port": 1025, "extra": {"from_email": "airflow@lab-sales.local", "disable_ssl": true, "disable_tls": true}}'
   volumes:
     - ./dags:/opt/airflow/dags
     - ./scripts:/opt/airflow/scripts
@@ -104,6 +106,36 @@ services:
     depends_on: *airflow-depends-on
     restart: unless-stopped
 
+  # Boîte mail de test : reçoit les alertes d'Airflow, consultable sur le port 8027
+  mailpit:
+    image: axllent/mailpit:v1.32.0
+    ports:
+      - "127.0.0.1:8027:8025"
+    restart: unless-stopped
+
+  # Suivi des exécutions : lit ops.journal_taches et ops.journal_controles
+  # avec le rôle grafana_lecture (lecture seule), sur le port 3002
+  grafana:
+    image: grafana/grafana:11.6.0
+    env_file: ../data_connection/lab_sales_grafana.env
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/lab_sales_executions.json
+    ports:
+      - "127.0.0.1:3002:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      postgres-ventes:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   postgres-airflow-data:
   postgres-ventes-data:
+  grafana-data:
