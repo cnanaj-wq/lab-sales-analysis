@@ -3,7 +3,7 @@
 Exécute les requêtes du dossier sql/gold/, une par table, dans une seule
 transaction : les 3 tables sont recalculées ensemble, ou rien ne change.
 Lancement depuis la racine du projet :
-    python scripts/06_construire_gold_pdf.py
+    python scripts/06_construire_gold.py
 """
 
 # --- Imports ------------------------------------------------------------------
@@ -21,7 +21,6 @@ SQL_FILES = [
     "daily_sales_country_currency.sql",
     "payment_method_analysis.sql",
 ]
-
 
 # --- Lecture des requêtes SQL -------------------------------------------------
 
