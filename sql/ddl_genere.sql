@@ -5,18 +5,40 @@ create schema if not exists ops;
 comment on schema ops is 'Journal des livraisons et des contrôles qualité';
 
 create table if not exists ops.journal_controles (
-    livraison_id integer not null,
+    controle_id serial not null,
+    run_id text not null,
+    date_logique date not null,
+    livraison_id integer,
     code_controle text not null,
+    mesure text not null,
+    valeur_bronze numeric,
+    valeur_silver numeric,
+    valeur_gold numeric,
+    ecart numeric,
+    seuil numeric not null,
+    bloquant boolean not null,
     resultat text not null,
     nb_ecarts integer not null,
     exemples text,
-    primary key (livraison_id, code_controle)
+    controle_le timestamptz not null,
+    primary key (controle_id)
 );
-comment on column ops.journal_controles.livraison_id is 'Livraison contrôlée';
-comment on column ops.journal_controles.code_controle is 'Code du contrôle, de CQ01 à CQ28';
+comment on column ops.journal_controles.controle_id is 'Numéro de ligne, attribué automatiquement';
+comment on column ops.journal_controles.run_id is 'Identifiant de l''exécution Airflow';
+comment on column ops.journal_controles.date_logique is 'Journée contrôlée';
+comment on column ops.journal_controles.livraison_id is 'Livraison contrôlée, vide pour une réconciliation entre couches';
+comment on column ops.journal_controles.code_controle is 'Code du contrôle : CQ01 à CQ28, RC01 bronze-silver, RC02 silver-gold';
+comment on column ops.journal_controles.mesure is 'Mesure comparée : tickets, ca ou quantite';
+comment on column ops.journal_controles.valeur_bronze is 'Valeur calculée dans bronze';
+comment on column ops.journal_controles.valeur_silver is 'Valeur calculée dans silver';
+comment on column ops.journal_controles.valeur_gold is 'Valeur calculée dans gold';
+comment on column ops.journal_controles.ecart is 'Écart le plus grand entre les couches comparées';
+comment on column ops.journal_controles.seuil is 'Écart toléré, lu dans une Variable Airflow';
+comment on column ops.journal_controles.bloquant is 'Oui : un échec arrête le DAG et gold n''est pas publié';
 comment on column ops.journal_controles.resultat is 'Réussi, avertissement ou échec';
 comment on column ops.journal_controles.nb_ecarts is 'Nombre de lignes en écart';
 comment on column ops.journal_controles.exemples is 'Au plus 10 exemples d''écarts';
+comment on column ops.journal_controles.controle_le is 'Date et heure du contrôle';
 
 create table if not exists ops.journal_livraisons (
     livraison_id serial not null,
@@ -37,6 +59,30 @@ comment on column ops.journal_livraisons.recu_le is 'Date et heure de réception
 comment on column ops.journal_livraisons.traite_le is 'Date et heure de fin du traitement';
 comment on column ops.journal_livraisons.nb_tickets is 'Nombre de tickets lus dans le fichier';
 comment on column ops.journal_livraisons.statut is 'Publiée, publiée avec avertissement, refusée, déjà intégrée ou manquante';
+
+create table if not exists ops.journal_taches (
+    tache_id serial not null,
+    run_id text not null,
+    date_logique date not null,
+    tache text not null,
+    debut_le timestamptz not null,
+    fin_le timestamptz,
+    statut text not null,
+    essai integer not null,
+    nb_lignes integer,
+    message text,
+    primary key (tache_id)
+);
+comment on column ops.journal_taches.tache_id is 'Numéro de ligne, attribué automatiquement';
+comment on column ops.journal_taches.run_id is 'Identifiant de l''exécution Airflow';
+comment on column ops.journal_taches.date_logique is 'Journée traitée par l''exécution, utile au backfill';
+comment on column ops.journal_taches.tache is 'Nom de la tâche, par exemple gold.construire_star_schema';
+comment on column ops.journal_taches.debut_le is 'Date et heure de début de la tâche';
+comment on column ops.journal_taches.fin_le is 'Date et heure de fin de la tâche, vide tant qu''elle tourne';
+comment on column ops.journal_taches.statut is 'En cours, succès ou échec';
+comment on column ops.journal_taches.essai is 'Numéro de l''essai : 1, puis 2 ou 3 en cas de réessai';
+comment on column ops.journal_taches.nb_lignes is 'Nombre de lignes traitées, transmis par XCom';
+comment on column ops.journal_taches.message is 'Message principal ou erreur ';
 
 -- Schéma bronze
 create schema if not exists bronze;

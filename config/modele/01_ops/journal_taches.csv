@@ -1,0 +1,11 @@
+colonne;type_sql;obligatoire;cle_primaire;champ_source;description
+tache_id;serial;oui;oui;;Numéro de ligne, attribué automatiquement
+run_id;text;oui;non;;Identifiant de l'exécution Airflow
+date_logique;date;oui;non;;Journée traitée par l'exécution, utile au backfill
+tache;text;oui;non;;Nom de la tâche, par exemple gold.construire_star_schema
+debut_le;timestamptz;oui;non;;Date et heure de début de la tâche
+fin_le;timestamptz;non;non;;Date et heure de fin de la tâche, vide tant qu'elle tourne
+statut;text;oui;non;;En cours, succès ou échec
+essai;integer;oui;non;;Numéro de l'essai : 1, puis 2 ou 3 en cas de réessai
+nb_lignes;integer;non;non;;Nombre de lignes traitées, transmis par XCom
+message;text;non;non;;Message principal ou erreur ; le log complet reste dans Airflow
