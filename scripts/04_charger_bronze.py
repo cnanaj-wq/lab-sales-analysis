@@ -22,8 +22,9 @@ from messages import log, stop
 
 # --- Constantes ---------------------------------------------------------------
 
-DEFAULT_SOURCE_FILE = Path("data") / "raw" / "pos_sales_data_30k.json"
-ARCHIVE_DIR = Path("data") / "archive"
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_SOURCE_FILE = PROJECT_DIR / "data" / "raw" / "pos_sales_data_30k.json"
+ARCHIVE_DIR = PROJECT_DIR / "data" / "archive"
 BATCH_SIZE = 1000
 
 STATUS_PUBLISHED = "publiée"
@@ -39,126 +40,146 @@ def file_hash(content):
     return hashlib.sha256(content).hexdigest()
 
 
-# --- Contrôle du fichier source -----------------------------------------------
+# --- Chargement d'un fichier --------------------------------------------------
 
-if len(sys.argv) > 1:
-    source_file = Path(sys.argv[1])
-else:
-    source_file = DEFAULT_SOURCE_FILE
 
-if not source_file.parent.is_dir():
-    stop(f"dossier de dépôt introuvable ({source_file.parent}).")
-if not source_file.is_file():
-    stop(f"fichier source introuvable ({source_file}).")
+def main(source_file=DEFAULT_SOURCE_FILE):
+    """Charge un fichier JSON dans bronze et renvoie les compteurs du chargement."""
+    source_file = Path(source_file)
 
-# --- Lecture du fichier -------------------------------------------------------
+    # Contrôle du fichier source
+    if not source_file.parent.is_dir():
+        stop(f"dossier de dépôt introuvable ({source_file.parent}).")
+    if not source_file.is_file():
+        stop(f"fichier source introuvable ({source_file}).")
 
-content = source_file.read_bytes()
-fingerprint = file_hash(content)
+    # Lecture du fichier
+    content = source_file.read_bytes()
+    fingerprint = file_hash(content)
 
-try:
-    tickets = json.loads(content)
-except json.JSONDecodeError as error:
-    stop(f"le fichier n'est pas un JSON valide ({error}).")
+    try:
+        tickets = json.loads(content)
+    except json.JSONDecodeError as error:
+        stop(f"le fichier n'est pas un JSON valide ({error}).")
 
-if not isinstance(tickets, list) or not tickets:
-    stop("le fichier ne contient aucun ticket.")
+    if not isinstance(tickets, list) or not tickets:
+        stop("le fichier ne contient aucun ticket.")
 
-log(f"{len(tickets)} tickets lus dans {source_file.name}")
+    log(f"{len(tickets)} tickets lus dans {source_file.name}")
 
-# --- Fichier déjà intégré ? ---------------------------------------------------
+    # Fichier déjà intégré ?
+    connection = connect()
 
-connection = connect()
+    with connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+            select livraison_id
+            from ops.journal_livraisons
+            where empreinte_fichier = %s and statut = %s
+            """,
+            (fingerprint, STATUS_PUBLISHED),
+        )
+        previous = cursor.fetchone()
+        if previous:
+            cursor.execute(
+                """
+                insert into ops.journal_livraisons
+                    (nom_fichier, empreinte_fichier, recu_le, traite_le, nb_tickets, statut)
+                values (%s, %s, now(), now(), %s, %s)
+                """,
+                (source_file.name, fingerprint, len(tickets), STATUS_ALREADY_LOADED),
+            )
 
-with connection, connection.cursor() as cursor:
-    cursor.execute(
-        """
-        select livraison_id
-        from ops.journal_livraisons
-        where empreinte_fichier = %s and statut = %s
-        """,
-        (fingerprint, STATUS_PUBLISHED),
-    )
-    previous = cursor.fetchone()
     if previous:
-        cursor.execute(
-            """
-            insert into ops.journal_livraisons
-                (nom_fichier, empreinte_fichier, recu_le, traite_le, nb_tickets, statut)
-            values (%s, %s, now(), now(), %s, %s)
-            """,
-            (source_file.name, fingerprint, len(tickets), STATUS_ALREADY_LOADED),
-        )
+        connection.close()
+        log(f"fichier déjà intégré (livraison {previous[0]}) : rien à charger.")
+        return {
+            "livraison_id": previous[0],
+            "statut": STATUS_ALREADY_LOADED,
+            "tickets_lus": len(tickets),
+            "tickets_charges": 0,
+        }
 
-if previous:
+    # Chargement dans bronze : tout ou rien
+    try:
+        with connection, connection.cursor() as cursor:
+            cursor.execute(
+                """
+                insert into ops.journal_livraisons
+                    (nom_fichier, empreinte_fichier, recu_le, statut)
+                values (%s, %s, now(), %s)
+                returning livraison_id
+                """,
+                (source_file.name, fingerprint, STATUS_PUBLISHED),
+            )
+            delivery_id = cursor.fetchone()[0]
+
+            rows = []
+            for ticket in tickets:
+                rows.append((ticket["transaction_id"], delivery_id, Json(ticket)))
+
+            inserted = execute_values(
+                cursor,
+                """
+                insert into bronze.pos_sales_raw
+                    (transaction_id, livraison_id, document, charge_le)
+                values %s
+                on conflict (transaction_id) do nothing
+                returning transaction_id
+                """,
+                rows,
+                template="(%s, %s, %s, now())",
+                page_size=BATCH_SIZE,
+                fetch=True,
+            )
+
+            cursor.execute(
+                """
+                update ops.journal_livraisons
+                set traite_le = clock_timestamp(), nb_tickets = %s
+                where livraison_id = %s
+                """,
+                (len(tickets), delivery_id),
+            )
+    except Exception as error:  # noqa: BLE001 - toute erreur refuse la livraison
+        with connection, connection.cursor() as cursor:
+            cursor.execute(
+                """
+                insert into ops.journal_livraisons
+                    (nom_fichier, empreinte_fichier, recu_le, traite_le, nb_tickets, statut)
+                values (%s, %s, now(), now(), %s, %s)
+                """,
+                (source_file.name, fingerprint, len(tickets), STATUS_REJECTED),
+            )
+        connection.close()
+        stop(f"chargement annulé, rien n'a été publié ({error}).")
+
     connection.close()
-    log(f"fichier déjà intégré (livraison {previous[0]}) : rien à charger.")
-    sys.exit(0)
+    ignored = len(tickets) - len(inserted)
+    log(
+        f"livraison {delivery_id} publiée : {len(inserted)} tickets chargés dans bronze."
+    )
+    log(f"{ignored} tickets déjà présents, ignorés.")
 
-# --- Chargement dans bronze : tout ou rien ------------------------------------
+    # Archive du fichier
+    ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+    archive_file = ARCHIVE_DIR / f"{fingerprint}.json"
+    if not archive_file.exists():
+        archive_file.write_bytes(content)
+    log(f"fichier archivé : {archive_file}")
 
-try:
-    with connection, connection.cursor() as cursor:
-        cursor.execute(
-            """
-            insert into ops.journal_livraisons
-                (nom_fichier, empreinte_fichier, recu_le, statut)
-            values (%s, %s, now(), %s)
-            returning livraison_id
-            """,
-            (source_file.name, fingerprint, STATUS_PUBLISHED),
-        )
-        delivery_id = cursor.fetchone()[0]
+    return {
+        "livraison_id": delivery_id,
+        "statut": STATUS_PUBLISHED,
+        "tickets_lus": len(tickets),
+        "tickets_charges": len(inserted),
+    }
 
-        rows = []
-        for ticket in tickets:
-            rows.append((ticket["transaction_id"], delivery_id, Json(ticket)))
 
-        inserted = execute_values(
-            cursor,
-            """
-            insert into bronze.pos_sales_raw
-                (transaction_id, livraison_id, document, charge_le)
-            values %s
-            on conflict (transaction_id) do nothing
-            returning transaction_id
-            """,
-            rows,
-            template="(%s, %s, %s, now())",
-            page_size=BATCH_SIZE,
-            fetch=True,
-        )
+# --- Lancement depuis le terminal ---------------------------------------------
 
-        cursor.execute(
-            """
-            update ops.journal_livraisons
-            set traite_le = clock_timestamp(), nb_tickets = %s
-            where livraison_id = %s
-            """,
-            (len(tickets), delivery_id),
-        )
-except Exception as error:  # noqa: BLE001 - toute erreur refuse la livraison
-    with connection, connection.cursor() as cursor:
-        cursor.execute(
-            """
-            insert into ops.journal_livraisons
-                (nom_fichier, empreinte_fichier, recu_le, traite_le, nb_tickets, statut)
-            values (%s, %s, now(), now(), %s, %s)
-            """,
-            (source_file.name, fingerprint, len(tickets), STATUS_REJECTED),
-        )
-    connection.close()
-    stop(f"chargement annulé, rien n'a été publié ({error}).")
-
-connection.close()
-ignored = len(tickets) - len(inserted)
-log(f"livraison {delivery_id} publiée : {len(inserted)} tickets chargés dans bronze.")
-log(f"{ignored} tickets déjà présents, ignorés.")
-
-# --- Archive du fichier -------------------------------------------------------
-
-ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
-archive_file = ARCHIVE_DIR / f"{fingerprint}.json"
-if not archive_file.exists():
-    archive_file.write_bytes(content)
-log(f"fichier archivé : {archive_file}")
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        main(sys.argv[1])
+    else:
+        main()
