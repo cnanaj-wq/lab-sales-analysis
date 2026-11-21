@@ -1,5 +1,14 @@
 # Lab Sales Analysis
 
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
+![Apache Airflow](https://img.shields.io/badge/Apache_Airflow-3.4-017CEE?logo=apacheairflow&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![psycopg2](https://img.shields.io/badge/psycopg2-2.9-336791)
+![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)
+![Power BI](https://img.shields.io/badge/Power_BI-%C3%A0_venir-F2C811)
+![Grafana](https://img.shields.io/badge/Grafana-%C3%A0_venir-F46800?logo=grafana&logoColor=white)
+
 Réalisation d'un pipeline de données qui analyse les ventes d'un réseau international de magasins de sport : il contrôle les livraisons des systèmes de caisse (POS) avant publication puis alimente un rapport Power BI pour suivre l'activité selon les axes d'analyse suivants :
 
 - magasin
