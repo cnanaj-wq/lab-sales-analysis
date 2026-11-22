@@ -11,7 +11,7 @@ valeur_gold;numeric;non;non;;Valeur calculée dans gold
 ecart;numeric;non;non;;Écart le plus grand entre les couches comparées
 seuil;numeric;oui;non;;Écart toléré, lu dans une Variable Airflow
 bloquant;boolean;oui;non;;Oui : un échec arrête le DAG et gold n'est pas publié
-resultat;text;oui;non;;Réussi, avertissement ou échec
-nb_ecarts;integer;oui;non;;Nombre de lignes en écart
+resultat;text;oui;non;;OK ou KO
+nb_ecarts;integer;oui;non;;Nombre d'écarts : 0 si OK, 1 si la mesure dépasse le seuil
 exemples;text;non;non;;Au plus 10 exemples d'écarts
 controle_le;timestamptz;oui;non;;Date et heure du contrôle
