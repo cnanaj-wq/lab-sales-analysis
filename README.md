@@ -78,14 +78,14 @@ Le modèle conceptuel de données (MCD, notation Merise) décrit les ventes avec
 
 Points clés :
 
-- le **ticket de vente** est au centre : il est payé par un moyen de paiement, enregistré dans un magasin et peut bénéficier d'un code promo ;
-- un **magasin** est une enseigne dans une ville (450 magasins), car l'identifiant `store_id` de la source n'est pas fiable ;
-- la quantité et le prix appartiennent à la **ligne de vente** (association CONTENIR), car le prix d'un même produit varie d'une vente à l'autre ;
+- le **ticket de vente** est au centre : il est payé par un moyen de paiement, enregistré dans un magasin et peut bénéficier d'un code promo
+- un **magasin** est une enseigne dans une ville (450 magasins), car l'identifiant `store_id` de la source n'est pas fiable
+- la quantité et le prix appartiennent à la **ligne de vente** (association CONTENIR), car le prix d'un même produit varie d'une vente à l'autre
 - la **devise** est rattachée au pays : chaque pays utilise une seule devise, et l'euro est partagé par 5 pays.
 
 ### Modèle physique
 
-Le modèle physique de données (MPD) décrit les tables PostgreSQL réellement créées. Chaque table est décrite par un fichier CSV dans `config/modele/` ; à partir de ces fichiers, `scripts/03_generer_ddl.py` crée les tables et `scripts/08_generer_mpd.py` écrit le MPD en [DBML](docs/modeles/mpd.dbml), dessiné avec dbdiagram.io. Le MPD et la base ne peuvent donc pas diverger. Les tables sont rangées en couches, selon l'architecture médaillon :
+Le modèle physique de données (MPD) décrit les tables PostgreSQL réellement créées. Chaque table est décrite par un fichier CSV dans `config/modele/`  à partir de ces fichiers, `scripts/03_generer_ddl.py` crée les tables et `scripts/08_generer_mpd.py` écrit le MPD en [DBML](docs/modeles/mpd.dbml), dessiné avec dbdiagram.io. Le MPD et la base ne peuvent donc pas diverger. Les tables sont rangées en couches, selon l'architecture médaillon :
 
 | Schéma | Tables | Rôle |
 | --- | --- | --- |
@@ -212,7 +212,7 @@ Bootcamp_Data_Engineer/
 
 Copier les cinq modèles de `config/` dans ce dossier, sous les noms indiqués en première ligne de chaque modèle puis remplacer chaque `a_remplacer` :
 
-- les mots de passe PostgreSQL : lettres et chiffres uniquement identiques dans les fichiers PostgreSQL et dans `lab_sales_airflow.env` ;
+- les mots de passe PostgreSQL : lettres et chiffres uniquement identiques dans les fichiers PostgreSQL et dans `lab_sales_airflow.env`
 - la clé Fernet qui chiffre les connexions enregistrées dans Airflow :
 
 ```powershell
