@@ -78,9 +78,9 @@ Le modèle conceptuel de données (MCD, notation Merise) décrit les ventes avec
 
 Points clés :
 
-- le **ticket de vente** est au centre : il est payé par un moyen de paiement, enregistré dans un magasin et peut bénéficier d'un code promo ;
+- le **ticket de vente** est au centre : il est payé par un moyen de paiement, enregistré dans un magasin et peut bénéficier d'un code promo 
 - un **magasin** est une enseigne dans une ville (450 magasins), car l'identifiant `store_id` de la source n'est pas fiable ;
-- la quantité et le prix appartiennent à la **ligne de vente** (association CONTENIR), car le prix d'un même produit varie d'une vente à l'autre ;
+- la quantité et le prix appartiennent à la **ligne de vente** (association CONTENIR), car le prix d'un même produit varie d'une vente à l'autre 
 - la **devise** est rattachée au pays : chaque pays utilise une seule devise, et l'euro est partagé par 5 pays.
 
 ### Modèle physique
