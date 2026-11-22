@@ -55,7 +55,8 @@ Lab_Sales_Analysis/
 ├── sql/
 │   ├── controles/      mesures par couche pour les portes qualité
 │   ├── gold/           requêtes des 3 tables gold
-│   └── gold_star_schema/  requêtes du modèle en étoile
+│   ├── gold_star_schema/  requêtes du modèle en étoile
+│   └── questions/      une requête par question métier, Q1 à Q12
 ├── tests/dags/         test d'intégrité du DAG
 ├── .gitattributes      règles de fins de ligne
 ├── .gitignore          fichiers exclus du dépôt
@@ -171,11 +172,12 @@ Bootcamp_Data_Engineer/
 │   ├── lab_sales_postgres_ventes.env
 │   ├── lab_sales_postgres_airflow.env
 │   ├── lab_sales_airflow.env
-│   └── lab_sales_grafana.env
+│   ├── lab_sales_grafana.env
+│   └── lab_sales_powerbi.env
 └── Lab_Sales_Analysis/                   ce dépôt
 ```
 
-Copier les quatre modèles de `config/` dans ce dossier, sous les noms indiqués en première ligne de chaque modèle puis remplacer chaque `a_remplacer` :
+Copier les cinq modèles de `config/` dans ce dossier, sous les noms indiqués en première ligne de chaque modèle puis remplacer chaque `a_remplacer` :
 
 - les mots de passe PostgreSQL : lettres et chiffres uniquement identiques dans les fichiers PostgreSQL et dans `lab_sales_airflow.env` ;
 - la clé Fernet qui chiffre les connexions enregistrées dans Airflow :
@@ -245,6 +247,7 @@ Les données sont conservées dans des volumes Docker. `docker compose down -v` 
 | [Modèle physique de données](docs/modeles/mpd.dbml) | Les 14 tables PostgreSQL, clés et relations, rangées en couches bronze, silver, gold et ops ; écrit depuis `config/modele/` | 0.3 | 2026-11-22 |
 | [Environnement Docker](docker-compose.yml) | Services PostgreSQL, Airflow, Mailpit et Grafana, ports, volumes et dépendances de démarrage | 0.2 | 2026-11-22 |
 | [Procédure de rattrapage](docs/04_procedure_rattrapage.md) | Repérer les journées non traitées, simuler, lancer et vérifier un rattrapage (backfill), règles et exemple réel | 0.1 | 2026-11-22 |
+| [Résultats des 12 questions](docs/05_resultats.md) | Réponse chiffrée et réserve de chaque question métier, requêtes dans `sql/questions/`, vérifications | 0.1 | 2026-11-22 |
 
 ## État d'avancement
 
@@ -259,6 +262,6 @@ Le détail de la réalisation brique par brique est suivi dans le [tableau Kanba
 - [x] Chargement du fichier JSON (bronze, silver, 3 tables gold, modèle en étoile)
 - [x] DAG Airflow avec portes qualité, journaux, rattrapage et test d'intégrité
 - [x] Supervision : alertes mail (Mailpit) et suivi en temps réel (Grafana)
-- [ ] Requêtes des 12 questions métier
+- [x] Requêtes des 12 questions métier
 - [ ] Rapport Power BI
 - [ ] Extension Snowflake et dbt
