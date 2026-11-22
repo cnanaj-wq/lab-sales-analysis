@@ -79,7 +79,7 @@ Le modèle conceptuel de données (MCD, notation Merise) décrit les ventes avec
 Points clés :
 
 - le **ticket de vente** est au centre : il est payé par un moyen de paiement, enregistré dans un magasin et peut bénéficier d'un code promo 
-- un **magasin** est une enseigne dans une ville (450 magasins), car l'identifiant `store_id` de la source n'est pas fiable ;
+- un **magasin** est une enseigne dans une ville (450 magasins), car l'identifiant `store_id` de la source n'est pas fiable
 - la quantité et le prix appartiennent à la **ligne de vente** (association CONTENIR), car le prix d'un même produit varie d'une vente à l'autre 
 - la **devise** est rattachée au pays : chaque pays utilise une seule devise, et l'euro est partagé par 5 pays.
 
@@ -102,8 +102,8 @@ Les 10 tables métier du MCD (magasin, produit, ticket de vente…) ne sont pas 
 Choix de modélisation :
 
 - les colonnes des tables demandées par l'énoncé sont reprises à l'identique, noms et types compris : les montants sont en `FLOAT`, comme dans l'énoncé ;
-- `bronze` conserve le code promo, absent de `exploded_products` ;
-- `store_sales_summary` respecte le grain imposé par l'énoncé (`store_id`). Dans l'étoile, un magasin est une enseigne dans une ville (`dim_magasin`, 450 magasins), car `store_id` n'identifie pas un magasin unique ;
+- `bronze` conserve le code promo, absent de `exploded_products`
+- `store_sales_summary` respecte le grain imposé par l'énoncé (`store_id`). Dans l'étoile, un magasin est une enseigne dans une ville (`dim_magasin`, 450 magasins), car `store_id` n'identifie pas un magasin unique
 - les montants sont en devise locale : un rapport qui additionne plusieurs pays doit choisir une devise.
 
 ## Pipeline Airflow
