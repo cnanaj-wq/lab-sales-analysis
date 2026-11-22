@@ -1,21 +1,26 @@
 """DAG du pipeline des ventes (Lab Sales Analysis).
 
 Enchaîne les scripts du projet : chargement de bronze, construction de silver,
-puis la porte qualité RC01 (bronze = silver). La suite (gold, RC02) viendra
-au bloc suivant.
+porte qualité RC01 (bronze = silver), groupe gold (les 3 tables gold et le
+modèle en étoile, en parallèle), puis porte qualité RC02 (silver = gold).
 Chaque tâche est notée dans ops.journal_taches ; chaque contrôle dans
 ops.journal_controles. XCom ne transporte que de petits compteurs.
+Un mail part vers l'astreinte (Mailpit en local) : bilan des contrôles si tout
+est OK, alerte avec l'erreur et les contrôles si une tâche échoue.
 """
 
 # --- Imports ------------------------------------------------------------------
 
 import importlib
+import logging
 import sys
 from datetime import datetime, timedelta
 from decimal import Decimal
+from html import escape
 from pathlib import Path
+from urllib.parse import quote
 
-from airflow.sdk import Param, Variable, dag, get_current_context, task
+from airflow.sdk import Param, Variable, dag, get_current_context, task, task_group
 from airflow.sdk.exceptions import AirflowFailException
 
 # --- Constantes ---------------------------------------------------------------
@@ -25,6 +30,10 @@ SCRIPTS_DIR = PROJECT_DIR / "scripts"
 CONTROLS_DIR = PROJECT_DIR / "sql" / "controles"
 MEASURES = ["tickets", "ca", "quantite"]
 THRESHOLD_VARIABLE = "lab_sales_seuil_ecart"
+ALERT_RECIPIENTS = ["astreinte-data@lab.local"]
+AIRFLOW_UI_URL = "http://localhost:8090"
+
+log = logging.getLogger(__name__)
 
 # Les scripts du projet (connexion.py, 04_charger_bronze.py...) sont dans scripts/
 sys.path.insert(0, str(SCRIPTS_DIR))
@@ -33,6 +42,8 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 ROW_COUNTERS = {
     "charger_bronze": "tickets_charges",
     "construire_silver": "articles_inseres",
+    "gold.construire_gold": "lignes_ecrites",
+    "gold.construire_star_schema": "lignes_ecrites",
 }
 
 
@@ -40,9 +51,27 @@ ROW_COUNTERS = {
 
 
 def logical_day(context):
-    """Renvoie la journée traitée par l'exécution (date logique)."""
+    """Renvoie la journée traitée par l'exécution (date logique).
+
+    La date est stockée en UTC : minuit à Paris vaut 23 h UTC la veille.
+    On la convertit dans le fuseau du DAG avant de garder le jour.
+    """
     logical = context.get("logical_date") or context["dag_run"].run_after
-    return logical.date()
+    return logical.astimezone(context["dag"].timezone).date()
+
+
+def controlled_day(context):
+    """Renvoie la journée à contrôler, ou None pour toute la table.
+
+    1. le paramètre jour s'il est renseigné ;
+    2. sinon pour un rattrapage (backfill), la date logique du run ;
+    3. sinon (run planifié ou manuel) None : toute la table.
+    """
+    if context["params"]["jour"]:
+        return context["params"]["jour"]
+    if context["dag_run"].run_type == "backfill":
+        return logical_day(context)
+    return None
 
 
 def run_script(module_name, *args):
@@ -137,6 +166,101 @@ def on_task_retry(context):
 
 def on_task_failure(context):
     write_task_journal(context, "échec", error_message(context))
+    mail_failure(context)
+
+
+# --- Mails à l'astreinte ------------------------------------------------------
+
+
+def read_controls(run_id):
+    """Lit le dernier résultat de chaque contrôle (code, mesure) d'un run."""
+    from connexion import connect
+
+    connection = connect()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                select distinct on (code_controle, mesure)
+                    code_controle, mesure, valeur_bronze, valeur_silver,
+                    valeur_gold, ecart, seuil, resultat
+                from ops.journal_controles
+                where run_id = %(run_id)s
+                order by code_controle, mesure, controle_id desc
+                """,
+                {"run_id": run_id},
+            )
+            return cursor.fetchall()
+    finally:
+        connection.close()
+
+
+def controls_html(rows):
+    """Met les contrôles d'un run en tableau HTML."""
+    if not rows:
+        return "<p>Aucun contrôle enregistré pour ce run.</p>"
+    header = "".join(
+        f"<th>{title}</th>"
+        for title in [
+            "Contrôle",
+            "Mesure",
+            "Bronze",
+            "Silver",
+            "Gold",
+            "Écart",
+            "Seuil",
+            "Résultat",
+        ]
+    )
+    lines = []
+    for row in rows:
+        color = "#1d7a3e" if row[-1] == "OK" else "#b42318"
+        cells = "".join(
+            f"<td>{escape('' if v is None else str(v))}</td>" for v in row[:-1]
+        )
+        lines.append(f"<tr>{cells}<td style='color:{color}'><b>{row[-1]}</b></td></tr>")
+    return (
+        "<table border='1' cellpadding='4' cellspacing='0'>"
+        f"<tr>{header}</tr>{''.join(lines)}</table>"
+    )
+
+
+def send_mail(subject, html):
+    """Envoie un mail par la connexion smtp_default.
+
+    Une panne de messagerie ne doit pas faire échouer le pipeline :
+    l'erreur est notée dans le log de la tâche, sans être relancée.
+    """
+    from airflow.providers.smtp.hooks.smtp import SmtpHook
+
+    try:
+        with SmtpHook(smtp_conn_id="smtp_default") as smtp:
+            smtp.send_email_smtp(
+                to=ALERT_RECIPIENTS, subject=subject, html_content=html
+            )
+    except Exception:  # le mail ne doit jamais bloquer le pipeline
+        log.exception("Mail non envoyé : %s", subject)
+
+
+def mail_failure(context):
+    """Alerte l'astreinte quand une tâche échoue définitivement."""
+    ti = context["ti"]
+    day = logical_day(context)
+    kind = "QUALITÉ KO" if ti.task_id.startswith("quality_gate") else "ÉCHEC"
+    link = (
+        f"{AIRFLOW_UI_URL}/dags/{ti.dag_id}/runs/{quote(ti.run_id, safe='')}"
+        f"/tasks/{ti.task_id}"
+    )
+    html = (
+        f"<h2>{kind} : {escape(ti.task_id)}</h2>"
+        f"<p>DAG <b>{ti.dag_id}</b>, run <b>{escape(ti.run_id)}</b>, "
+        f"journée {day}, essai {ti.try_number}.</p>"
+        f"<p><b>Erreur :</b> {escape(error_message(context) or 'non transmise')}</p>"
+        "<p>La suite du pipeline n'a pas été exécutée.</p>"
+        f"<h3>Contrôles du run</h3>{controls_html(read_controls(ti.run_id))}"
+        f"<p><a href='{link}'>Ouvrir la tâche dans Airflow</a></p>"
+    )
+    send_mail(f"[Lab Sales] {kind} {ti.task_id} - {day}", html)
 
 
 # --- Journal des contrôles ----------------------------------------------------
@@ -176,6 +300,46 @@ def write_control_journal(code, results, delivery_id):
         connection.close()
 
 
+def run_quality_gate(code, upstream, downstream, delivery_id):
+    """Compare les mesures de deux couches, note le résultat et bloque si KO.
+
+    upstream et downstream sont des noms de couche : bronze, silver ou gold.
+    """
+    day = controlled_day(get_current_context())
+    threshold = Decimal(Variable.get(THRESHOLD_VARIABLE, default="0"))
+
+    upstream_values = read_measures(upstream, day)
+    downstream_values = read_measures(downstream, day)
+
+    results = []
+    for measure in MEASURES:
+        gap = abs(
+            Decimal(downstream_values[measure]) - Decimal(upstream_values[measure])
+        )
+        result = {
+            "mesure": measure,
+            "bronze": None,
+            "silver": None,
+            "gold": None,
+            "ecart": gap,
+            "seuil": threshold,
+            "resultat": "OK" if gap <= threshold else "KO",
+            "nb_ecarts": 0 if gap <= threshold else 1,
+        }
+        result[upstream] = upstream_values[measure]
+        result[downstream] = downstream_values[measure]
+        results.append(result)
+
+    write_control_journal(code, results, delivery_id)
+
+    failed = [r["mesure"] for r in results if r["resultat"] == "KO"]
+    if failed:
+        raise AirflowFailException(
+            f"{code} KO : {upstream} ≠ {downstream} ({', '.join(failed)})"
+        )
+    return {r["mesure"]: r["resultat"] for r in results}
+
+
 # --- DAG ----------------------------------------------------------------------
 
 DEFAULT_ARGS = {
@@ -191,7 +355,7 @@ DEFAULT_ARGS = {
 
 @dag(
     dag_id="lab_sales_analysis_pipeline",
-    description="Ventes : bronze → silver → porte RC01 (bronze = silver)",
+    description="Ventes : bronze → silver → RC01 → gold (tables + étoile) → RC02",
     schedule="@daily",
     start_date=datetime(2026, 11, 1),
     catchup=False,
@@ -203,7 +367,10 @@ DEFAULT_ARGS = {
             None,
             type=["null", "string"],
             format="date",
-            description="AAAA-MM-JJ pour contrôler une journée ; vide = toute la table",
+            description=(
+                "AAAA-MM-JJ pour contrôler une journée ; vide = toute la table "
+                "(ou la date logique pour un rattrapage)"
+            ),
         ),
     },
 )
@@ -220,40 +387,48 @@ def lab_sales_analysis_pipeline():
     @task(retries=0)
     def quality_gate_rc01(bronze, silver):
         """Porte qualité : bronze et silver doivent avoir les mêmes totaux."""
-        day = get_current_context()["params"]["jour"]
-        threshold = Decimal(Variable.get(THRESHOLD_VARIABLE, default="0"))
+        return run_quality_gate("RC01", "bronze", "silver", bronze["livraison_id"])
 
-        bronze_values = read_measures("bronze", day)
-        silver_values = read_measures("silver", day)
+    @task_group
+    def gold(rc01):
+        """Les 3 tables gold et le modèle en étoile, construits en parallèle."""
 
-        results = []
-        for measure in MEASURES:
-            gap = abs(Decimal(silver_values[measure]) - Decimal(bronze_values[measure]))
-            results.append(
-                {
-                    "mesure": measure,
-                    "bronze": bronze_values[measure],
-                    "silver": silver_values[measure],
-                    "gold": None,
-                    "ecart": gap,
-                    "seuil": threshold,
-                    "resultat": "OK" if gap <= threshold else "KO",
-                    "nb_ecarts": 0 if gap <= threshold else 1,
-                }
-            )
+        @task
+        def construire_gold(rc01):
+            # rc01 n'est pas lu : le recevoir fait attendre la porte RC01
+            counts = run_script("06_construire_gold")
+            return {**counts, "lignes_ecrites": sum(counts.values())}
 
-        write_control_journal("RC01", results, bronze["livraison_id"])
+        @task
+        def construire_star_schema(rc01):
+            counts = run_script("06_construire_gold_star_schema")
+            return {**counts, "lignes_ecrites": sum(counts.values())}
 
-        failed = [r["mesure"] for r in results if r["resultat"] == "KO"]
-        if failed:
-            raise AirflowFailException(
-                f"RC01 KO : bronze ≠ silver ({', '.join(failed)})"
-            )
-        return {r["mesure"]: r["resultat"] for r in results}
+        return [construire_gold(rc01), construire_star_schema(rc01)]
+
+    @task(retries=0)
+    def quality_gate_rc02(bronze, gold_tables):
+        """Porte qualité : silver et l'étoile de gold doivent avoir les mêmes totaux."""
+        return run_quality_gate("RC02", "silver", "gold", bronze["livraison_id"])
+
+    @task
+    def envoyer_bilan(rc02):
+        """Envoie le bilan des contrôles à l'astreinte quand tout est OK."""
+        context = get_current_context()
+        day = logical_day(context)
+        html = (
+            f"<h2>Pipeline OK : journée {day}</h2>"
+            f"<p>Run <b>{escape(context['run_id'])}</b> : bronze, silver et gold "
+            "construits, portes RC01 et RC02 validées.</p>"
+            f"<h3>Contrôles du run</h3>{controls_html(read_controls(context['run_id']))}"
+        )
+        send_mail(f"[Lab Sales] OK - {day}", html)
 
     bronze = charger_bronze()
     silver = construire_silver(bronze)
-    quality_gate_rc01(bronze, silver)
+    rc01 = quality_gate_rc01(bronze, silver)
+    rc02 = quality_gate_rc02(bronze, gold(rc01))
+    envoyer_bilan(rc02)
 
 
 lab_sales_analysis_pipeline()
