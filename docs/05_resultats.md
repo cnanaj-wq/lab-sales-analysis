@@ -115,7 +115,7 @@ Requête : [`q04_quantite_par_pays.sql`](../sql/questions/q04_quantite_par_pays.
 
 Requête : [`q05_ca_total_cad.sql`](../sql/questions/q05_ca_total_cad.sql)
 
-**CA TOAL : 1 294 261,00 CAD** (Canada, seul pays en CAD).
+**CA TOTAL : 1 294 261,00 CAD** (Canada, seul pays en CAD).
 
 ### Q6. Combien de jours ont dépassé 6 000 € de ventes en France ?
 
