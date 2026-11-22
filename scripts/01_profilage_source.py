@@ -2,12 +2,13 @@
 
 Lecture seule : le fichier source n'est jamais modifié.
 Lancement depuis la racine du projet :
-    python scripts/profilage_source.py
+    python scripts/01_profilage_source.py
 
 Chaque contrôle porte un identifiant repris dans docs/02_profilage_source.md :
     S = structure, V = volume, F = format (validité), C = complétude,
     U = unicité, K = cohérence, D = distribution.
 """
+
 import json
 import sys
 from collections import Counter, defaultdict

@@ -1,0 +1,10 @@
+colonne;type_sql;obligatoire;cle_primaire;champ_source;description
+ticket_id;text;oui;oui;;Identifiant du ticket (transaction_id)
+produit_id;text;oui;oui;;Produit, lien vers dim_produit
+date_id;date;oui;non;;Jour de l'achat, lien vers dim_date
+magasin_id;integer;oui;non;;Magasin, lien vers dim_magasin
+moyen_paiement;text;oui;non;;Moyen de paiement, lien vers dim_moyen_paiement
+quantite;integer;oui;non;;Quantité vendue sur la ligne (quantity)
+prix_unitaire;float;oui;non;;Prix unitaire en devise locale (price)
+montant_ligne;float;oui;non;;Quantité multipliée par le prix unitaire, en devise locale
+est_retourne;boolean;oui;non;;Vrai si le ticket de la ligne est retourné

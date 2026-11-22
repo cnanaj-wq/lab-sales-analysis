@@ -1,239 +1,236 @@
 // Modèle physique de données - Lab Sales Analysis
-// Brouillon v0.1 - 2026-11-19 - Cédric NANA
-// À coller dans https://dbdiagram.io pour obtenir le diagramme.
-//
-// Architecture médaillon :
-//   bronze : données telles que livrées
-//   silver : données contrôlées (table intermédiaire de l'énoncé et tables du MCD)
-//   gold   : tables d'analyse de l'énoncé
-//   ops    : journal des livraisons et des contrôles (contrat, section 7.4)
+// Écrit par scripts/08_generer_mpd.py le 2026-11-22 à partir de config/modele :
+// ne pas modifier à la main. À coller dans https://dbdiagram.io pour le dessin.
 
 Project lab_sales_analysis {
   database_type: 'PostgreSQL'
-  Note: 'Pipeline de données de ventes POS. Références : LSA-DOC-01 (cadrage), LSA-DOC-02 (profilage), LSA-DOC-03 (contrat).'
+  Note: 'Architecture médaillon : bronze, silver, gold, et ops pour le suivi du pipeline.'
 }
 
 // ============================================================================
-// ops : suivi des livraisons
+// ops : Suivi du pipeline : livraisons, tâches Airflow et portes qualité
 // ============================================================================
-
-Table ops.journal_livraisons {
-  livraison_id serial [pk]
-  nom_fichier text [not null, note: 'pos_sales_AAAA-MM-JJ.json ou pos_sales_data_30k.json']
-  journee_vente date [note: 'Journée couverte. Vide pour la reprise d historique']
-  recu_le timestamptz [not null]
-  traite_le timestamptz
-  nb_tickets integer
-  statut text [not null, note: 'Publiée, publiée avec avertissement, refusée, manquante']
-
-  Note: 'Une ligne par tentative de traitement. Une reprise crée une nouvelle ligne (contrat 7.3).'
-}
 
 Table ops.journal_controles {
-  livraison_id integer [not null]
-  code_controle text [not null, note: 'CQ01 à CQ28']
-  resultat text [not null, note: 'Réussi, avertissement, échec']
-  nb_ecarts integer [not null, default: 0]
-  exemples text [note: 'Au plus 10 exemples par échec']
+  controle_id serial [pk, note: 'Numéro de ligne, attribué automatiquement']
+  run_id text [not null, note: 'Identifiant de l\'exécution Airflow']
+  date_logique date [not null, note: 'Journée contrôlée']
+  livraison_id integer [note: 'Livraison contrôlée, vide pour une réconciliation entre couches']
+  code_controle text [not null, note: 'Code du contrôle : CQ01 à CQ28, RC01 bronze-silver, RC02 silver-gold']
+  mesure text [not null, note: 'Mesure comparée : tickets, ca ou quantite']
+  valeur_bronze numeric [note: 'Valeur calculée dans bronze']
+  valeur_silver numeric [note: 'Valeur calculée dans silver']
+  valeur_gold numeric [note: 'Valeur calculée dans gold']
+  ecart numeric [note: 'Écart le plus grand entre les couches comparées']
+  seuil numeric [not null, note: 'Écart toléré, lu dans une Variable Airflow']
+  bloquant boolean [not null, note: 'Oui : un échec arrête le DAG et gold n\'est pas publié']
+  resultat text [not null, note: 'OK ou KO']
+  nb_ecarts integer [not null, note: 'Nombre d\'écarts : 0 si OK, 1 si la mesure dépasse le seuil']
+  exemples text [note: 'Au plus 10 exemples d\'écarts']
+  controle_le timestamptz [not null, note: 'Date et heure du contrôle']
+}
 
-  indexes {
-    (livraison_id, code_controle) [pk]
-  }
+Table ops.journal_livraisons {
+  livraison_id serial [pk, note: 'Numéro de livraison, attribué automatiquement']
+  nom_fichier text [not null, note: 'Nom du fichier reçu']
+  empreinte_fichier char(64) [not null, note: 'Empreinte SHA-256 du fichier, détecte un fichier déjà intégré. Nom de l\'archive : data/archive/<empreinte>.json']
+  journee_vente date [note: 'Journée couverte, vide pour la reprise d\'historique']
+  recu_le timestamptz [not null, note: 'Date et heure de réception du fichier']
+  traite_le timestamptz [note: 'Date et heure de fin du traitement']
+  nb_tickets integer [note: 'Nombre de tickets lus dans le fichier']
+  statut text [not null, note: 'Publiée, publiée avec avertissement, refusée, déjà intégrée ou manquante']
+}
+
+Table ops.journal_taches {
+  tache_id serial [pk, note: 'Numéro de ligne, attribué automatiquement']
+  run_id text [not null, note: 'Identifiant de l\'exécution Airflow']
+  date_logique date [not null, note: 'Journée traitée par l\'exécution, utile au backfill']
+  tache text [not null, note: 'Nom de la tâche, par exemple gold.construire_star_schema']
+  debut_le timestamptz [not null, note: 'Date et heure de début de la tâche']
+  fin_le timestamptz [note: 'Date et heure de fin de la tâche, vide tant qu\'elle tourne']
+  statut text [not null, note: 'En cours, succès, réessai ou échec']
+  essai integer [not null, note: 'Numéro de l\'essai : 1, puis 2 ou 3 en cas de réessai']
+  nb_lignes integer [note: 'Nombre de lignes traitées, transmis par XCom']
+  message text [note: 'Message principal ou erreur ']
+}
+
+TableGroup ops [color: #6B7280] {
+  ops.journal_controles
+  ops.journal_livraisons
+  ops.journal_taches
 }
 
 // ============================================================================
-// bronze : données telles que livrées
+// bronze : Tickets tels que livrés, sans correction
 // ============================================================================
 
 Table bronze.pos_sales_raw {
-  raw_id bigserial [pk]
-  livraison_id integer [not null]
-  transaction_id text [not null, note: 'Extrait du document pour faciliter les recherches']
+  transaction_id text [pk, note: 'Identifiant du ticket, extrait du document']
+  livraison_id integer [not null, note: 'Livraison qui a apporté le ticket']
   document jsonb [not null, note: 'Ticket complet tel que livré, promo_code compris']
-  charge_le timestamptz [not null, default: `now()`]
+  charge_le timestamptz [not null, note: 'Date et heure de chargement']
+}
 
-  Note: 'Aucune correction. Garde tous les champs livrés, y compris promo_code, absent de exploded_products.'
+TableGroup bronze [color: #B45309] {
+  bronze.pos_sales_raw
 }
 
 // ============================================================================
-// silver : table intermédiaire de l'énoncé
+// silver : Données contrôlées : un ticket découpé en lignes article
 // ============================================================================
 
 Table silver.exploded_products {
-  transaction_id text [not null]
-  store_id text
-  store_name text
-  store_country text
-  store_city text
-  store_type text
-  purchase_timestamp timestamp
-  payment_method text
-  currency text
-  total_amount "numeric(12,2)"
-  total_quantity_sold integer
-  discount_applied "numeric(12,2)"
-  return_status text
-  product_id text [not null]
-  product_name text
-  products_category text
-  quantity integer
-  price "numeric(12,2)"
+  transaction_id text [not null, note: 'Identifiant du ticket de caisse']
+  store_id text [note: 'Identifiant du magasin dans la source, non fiable (RP01)']
+  store_name text [note: 'Enseigne du magasin']
+  store_country text [note: 'Pays du magasin, tel que livré']
+  store_city text [note: 'Ville du magasin']
+  store_type text [note: 'Type de magasin']
+  purchase_timestamp timestamp [note: 'Date et heure de l\'achat']
+  payment_method text [note: 'Moyen de paiement']
+  currency text [note: 'Devise du ticket (ISO 4217)']
+  total_amount float [note: 'Montant total du ticket, en devise locale']
+  total_quantity_sold integer [note: 'Nombre total d\'articles du ticket']
+  discount_applied float [note: 'Remise appliquée au ticket']
+  return_status text [note: 'Statut de retour du ticket']
+  product_id text [not null, note: 'Code du produit']
+  product_name text [note: 'Nom du produit']
+  products_category text [note: 'Catégorie du produit']
+  quantity integer [note: 'Quantité vendue sur la ligne']
+  price float [note: 'Prix unitaire sur la ligne']
 
   indexes {
     (transaction_id, product_id) [pk]
   }
+}
 
-  Note: 'Table intermédiaire imposée par l énoncé : 18 colonnes, noms identiques. Montants en numeric au lieu de FLOAT, pour des calculs exacts. Une ligne par article vendu.'
+TableGroup silver [color: #64748B] {
+  silver.exploded_products
 }
 
 // ============================================================================
-// silver : tables du MCD
+// gold : Les 3 tables gold des 12 questions et le modèle en étoile pour Power BI
 // ============================================================================
-
-Table silver.devise {
-  code_devise char(3) [pk, note: 'ISO 4217']
-}
-
-Table silver.pays {
-  code_pays char(2) [pk, note: 'ISO 3166-1 alpha-2']
-  nom_pays text [not null, note: 'En français']
-  nom_pays_source text [not null, unique, note: 'Tel que livré, en anglais']
-  code_devise char(3) [not null]
-}
-
-Table silver.ville {
-  code_ville serial [pk]
-  nom_ville text [not null]
-  code_pays char(2) [not null]
-
-  indexes {
-    (nom_ville, code_pays) [unique]
-  }
-}
-
-Table silver.magasin {
-  code_magasin serial [pk]
-  nom_enseigne text [not null]
-  code_ville integer [not null]
-
-  indexes {
-    (nom_enseigne, code_ville) [unique]
-  }
-
-  Note: 'Un magasin = une enseigne dans une ville (RP01, contrat 5.2).'
-}
-
-Table silver.categorie {
-  code_categorie serial [pk]
-  nom_categorie text [not null, unique]
-}
-
-Table silver.produit {
-  code_produit text [pk, note: 'P + 3 chiffres']
-  nom_produit text [not null]
-  code_categorie integer [not null]
-}
-
-Table silver.moyen_paiement {
-  libelle_moyen text [pk]
-}
-
-Table silver.code_promo {
-  code_promo text [pk, note: 'UNKNOWN pour une promo sans code (RP02)']
-}
-
-Table silver.ticket_vente {
-  num_ticket text [pk, note: 'transaction_id']
-  date_heure_achat timestamp [not null]
-  montant_total "numeric(12,2)" [not null, note: 'Brut, en devise locale']
-  montant_remise "numeric(12,2)" [not null]
-  indicateur_promo boolean [not null]
-  statut_retour text [not null]
-  type_magasin text [not null, note: 'Attribut du ticket (RP09)']
-  code_magasin integer [not null]
-  libelle_moyen text [not null]
-  code_promo text [note: 'Vide si pas de promotion']
-  store_id_source text [note: 'Conservé pour la traçabilité, jamais utilisé comme clé (RP01)']
-  livraison_id integer [not null]
-}
-
-Table silver.ligne_vente {
-  num_ticket text [not null]
-  code_produit text [not null]
-  quantite integer [not null]
-  prix_unitaire "numeric(12,2)" [not null, note: 'Prix de la ligne, ajusté au coût de la vie par pays']
-
-  indexes {
-    (num_ticket, code_produit) [pk]
-  }
-
-  Note: 'Association CONTENIR du MCD.'
-}
-
-// ============================================================================
-// gold : tables d'analyse de l'énoncé
-// ============================================================================
-
-Table gold.store_sales_summary {
-  store_id text
-  store_name text
-  store_country text
-  store_city text
-  store_type text
-  total_sales_amount "numeric(12,2)"
-  total_quantity_sold integer
-
-  indexes {
-    (store_id, store_name, store_country, store_city, store_type) [pk]
-  }
-
-  Note: 'Grain imposé par l énoncé. Q1 et Q3 sont aussi calculées sur silver.magasin, avec réserve (contrat 5.2).'
-}
 
 Table gold.daily_sales_country_currency {
-  purchase_date date
-  store_country text
-  currency text
-  daily_total_sales "numeric(12,2)"
-  number_of_transactions integer
-  average_transaction_value "numeric(12,2)"
+  purchase_date date [not null, note: 'Date de la transaction, sans l\'heure']
+  store_country text [not null, note: 'Pays du magasin']
+  currency text [not null, note: 'Devise locale utilisée']
+  daily_total_sales float [note: 'Total des ventes de la journée, une fois par ticket']
+  number_of_transactions integer [note: 'Nombre de tickets distincts']
+  average_transaction_value float [note: 'Valeur moyenne d\'un ticket']
 
   indexes {
     (purchase_date, store_country, currency) [pk]
   }
 }
 
+Table gold.dim_date {
+  date_id date [pk, note: 'Jour du calendrier, de la première à la dernière date d\'achat, sans trou']
+  annee integer [not null, note: 'Année']
+  trimestre integer [not null, note: 'Trimestre, de 1 à 4']
+  mois integer [not null, note: 'Mois, de 1 à 12']
+  nom_mois text [not null, note: 'Nom du mois en français']
+  semaine_iso integer [not null, note: 'Numéro de semaine ISO']
+  jour integer [not null, note: 'Jour du mois']
+  jour_semaine integer [not null, note: 'Jour de la semaine ISO, de 1 (lundi) à 7 (dimanche)']
+  nom_jour text [not null, note: 'Nom du jour en français']
+}
+
+Table gold.dim_magasin {
+  magasin_id integer [pk, note: 'Clé technique du magasin, numérotée à la construction']
+  enseigne text [not null, note: 'Enseigne du magasin (store_name)']
+  ville text [not null, note: 'Ville du magasin (store_city) ']
+  pays text [not null, note: 'Pays du magasin (store_country)']
+  devise text [not null, note: 'Devise du pays (currency), une seule par pays']
+}
+
+Table gold.dim_moyen_paiement {
+  moyen_paiement text [pk, note: 'Moyen de paiement (payment_method)']
+  famille text [not null, note: 'Carte, Portefeuille mobile ou Espèces']
+  reseau text [not null, note: 'Visa, Mastercard ou Aucun']
+}
+
+Table gold.dim_produit {
+  produit_id text [pk, note: 'Code du produit (product_id)']
+  nom_produit text [not null, note: 'Nom du produit (product_name)']
+  categorie text [not null, note: 'Catégorie du produit (products_category)']
+}
+
+Table gold.fait_ligne_vente {
+  ticket_id text [not null, note: 'Identifiant du ticket (transaction_id)']
+  produit_id text [not null, note: 'Produit, lien vers dim_produit']
+  date_id date [not null, note: 'Jour de l\'achat, lien vers dim_date']
+  magasin_id integer [not null, note: 'Magasin, lien vers dim_magasin']
+  moyen_paiement text [not null, note: 'Moyen de paiement, lien vers dim_moyen_paiement']
+  quantite integer [not null, note: 'Quantité vendue sur la ligne (quantity)']
+  prix_unitaire float [not null, note: 'Prix unitaire en devise locale (price)']
+  montant_ligne float [not null, note: 'Quantité multipliée par le prix unitaire, en devise locale']
+  est_retourne boolean [not null, note: 'Vrai si le ticket de la ligne est retourné']
+
+  indexes {
+    (ticket_id, produit_id) [pk]
+  }
+}
+
+Table gold.fait_ticket {
+  ticket_id text [pk, note: 'Identifiant du ticket (transaction_id)']
+  date_id date [not null, note: 'Jour de l\'achat, lien vers dim_date']
+  magasin_id integer [not null, note: 'Magasin, lien vers dim_magasin']
+  moyen_paiement text [not null, note: 'Moyen de paiement, lien vers dim_moyen_paiement']
+  horodatage_achat timestamp [not null, note: 'Date et heure de l\'achat (purchase_timestamp)']
+  type_magasin text [not null, note: 'Type de magasin (store_type), propre au ticket : il varie pour un même magasin']
+  montant_total float [not null, note: 'Montant du ticket en devise locale (total_amount), égal à la somme des montant_ligne']
+  remise float [not null, note: 'Remise appliquée au ticket, en devise locale (discount_applied)']
+  quantite_totale integer [not null, note: 'Nombre d\'articles du ticket (total_quantity_sold)']
+  est_retourne boolean [not null, note: 'Vrai si le ticket est retourné (return_status = Returned)']
+}
+
 Table gold.payment_method_analysis {
-  payment_method text [pk]
-  total_transactions integer
-  total_sales_amount "numeric(12,2)"
-  average_discount "numeric(12,2)"
-  return_rate "numeric(5,2)" [note: 'Pourcentage, de 0 à 100']
-  average_items_per_transaction "numeric(6,2)"
+  payment_method text [pk, note: 'Méthode de paiement utilisée']
+  total_transactions integer [note: 'Nombre de tickets distincts']
+  total_sales_amount float [note: 'Montant total des ventes, une fois par ticket']
+  average_discount float [note: 'Remise moyenne par ticket']
+  return_rate float [note: 'Pourcentage de tickets retournés, de 0 à 100']
+  average_items_per_transaction float [note: 'Nombre moyen d\'articles par ticket']
+}
+
+Table gold.store_sales_summary {
+  store_id text [not null, note: 'Identifiant du magasin, granularité imposée par l\'énoncé']
+  store_name text [not null, note: 'Nom du magasin']
+  store_country text [not null, note: 'Pays du magasin']
+  store_city text [not null, note: 'Ville du magasin']
+  store_type text [not null, note: 'Type de magasin']
+  total_sales_amount float [note: 'Somme de total_amount, comptée une fois par ticket']
+  total_quantity_sold integer [note: 'Somme des quantités vendues']
+
+  indexes {
+    (store_id, store_name, store_country, store_city, store_type) [pk]
+  }
+}
+
+TableGroup gold [color: #CA8A04] {
+  gold.daily_sales_country_currency
+  gold.dim_date
+  gold.dim_magasin
+  gold.dim_moyen_paiement
+  gold.dim_produit
+  gold.fait_ligne_vente
+  gold.fait_ticket
+  gold.payment_method_analysis
+  gold.store_sales_summary
 }
 
 // ============================================================================
-// Relations (le côté "1,1" du MCD porte la clé étrangère)
+// Relations (clés étrangères)
 // ============================================================================
 
 Ref: ops.journal_controles.livraison_id > ops.journal_livraisons.livraison_id
 Ref: bronze.pos_sales_raw.livraison_id > ops.journal_livraisons.livraison_id
-Ref: silver.ticket_vente.livraison_id > ops.journal_livraisons.livraison_id
-
-// UTILISER : PAYS 1,1 / DEVISE 0,n
-Ref: silver.pays.code_devise > silver.devise.code_devise
-// APPARTENIR : VILLE 1,1 / PAYS 0,n
-Ref: silver.ville.code_pays > silver.pays.code_pays
-// SITUER : MAGASIN 1,1 / VILLE 0,n
-Ref: silver.magasin.code_ville > silver.ville.code_ville
-// REGROUPER : PRODUIT 1,1 / CATEGORIE 0,n
-Ref: silver.produit.code_categorie > silver.categorie.code_categorie
-// ENREGISTRER : TICKET 1,1 / MAGASIN 0,n
-Ref: silver.ticket_vente.code_magasin > silver.magasin.code_magasin
-// PAYER : TICKET 1,1 / MOYEN_PAIEMENT 0,n
-Ref: silver.ticket_vente.libelle_moyen > silver.moyen_paiement.libelle_moyen
-// BENEFICIER : TICKET 0,1 / CODE_PROMO 0,n (clé étrangère facultative)
-Ref: silver.ticket_vente.code_promo > silver.code_promo.code_promo
-// CONTENIR : TICKET 1,n / PRODUIT 0,n (association porteuse -> table ligne_vente)
-Ref: silver.ligne_vente.num_ticket > silver.ticket_vente.num_ticket
-Ref: silver.ligne_vente.code_produit > silver.produit.code_produit
+Ref: gold.fait_ticket.date_id > gold.dim_date.date_id
+Ref: gold.fait_ticket.magasin_id > gold.dim_magasin.magasin_id
+Ref: gold.fait_ticket.moyen_paiement > gold.dim_moyen_paiement.moyen_paiement
+Ref: gold.fait_ligne_vente.date_id > gold.dim_date.date_id
+Ref: gold.fait_ligne_vente.magasin_id > gold.dim_magasin.magasin_id
+Ref: gold.fait_ligne_vente.moyen_paiement > gold.dim_moyen_paiement.moyen_paiement
+Ref: gold.fait_ligne_vente.produit_id > gold.dim_produit.produit_id

@@ -1,0 +1,4 @@
+colonne;type_sql;obligatoire;cle_primaire;champ_source;description
+produit_id;text;oui;oui;;Code du produit (product_id)
+nom_produit;text;oui;non;;Nom du produit (product_name)
+categorie;text;oui;non;;Catégorie du produit (products_category)

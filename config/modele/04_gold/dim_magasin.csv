@@ -1,0 +1,6 @@
+colonne;type_sql;obligatoire;cle_primaire;champ_source;description
+magasin_id;integer;oui;oui;;Clé technique du magasin, numérotée à la construction
+enseigne;text;oui;non;;Enseigne du magasin (store_name)
+ville;text;oui;non;;Ville du magasin (store_city) ; enseigne et ville identifient le magasin
+pays;text;oui;non;;Pays du magasin (store_country)
+devise;text;oui;non;;Devise du pays (currency), une seule par pays

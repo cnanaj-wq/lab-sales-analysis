@@ -1,0 +1,296 @@
+{
+  "uid": "lab-sales-executions",
+  "title": "Lab Sales - Exécutions du pipeline",
+  "description": "Suivi des runs du DAG lab_sales_analysis_pipeline : tâches, durées et portes qualité RC01 / RC02. Source : ops.journal_taches et ops.journal_controles.",
+  "tags": ["lab-sales", "airflow", "qualite"],
+  "timezone": "browser",
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "graphTooltip": 1,
+  "time": { "from": "now-7d", "to": "now" },
+  "timepicker": { "refresh_intervals": ["5s", "30s", "1m", "5m"] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Dernier run",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "lab-sales-ops" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "with dernier as (select run_id from ops.journal_taches order by debut_le desc limit 1)\nselect case\n    when bool_or(t.statut = 'échec') then 'ÉCHEC'\n    when bool_or(t.fin_le is null) then 'EN COURS'\n    else 'OK'\n  end as etat\nfrom ops.journal_taches t\njoin dernier d on d.run_id = t.run_id"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": {
+              "OK": { "color": "green", "index": 0 },
+              "ÉCHEC": { "color": "red", "index": 1 },
+              "EN COURS": { "color": "blue", "index": 2 }
+            } }
+          ],
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "text", "value": null } ] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/^etat$/", "values": false },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Durée du dernier run",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "lab-sales-ops" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "with dernier as (select run_id from ops.journal_taches order by debut_le desc limit 1)\nselect extract(epoch from max(coalesce(t.fin_le, now())) - min(t.debut_le)) as duree\nfrom ops.journal_taches t\njoin dernier d on d.run_id = t.run_id"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 1,
+          "color": { "mode": "fixed", "fixedColor": "text" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Contrôles KO du dernier run",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "lab-sales-ops" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "with dernier as (select run_id from ops.journal_taches order by debut_le desc limit 1),\ncontroles as (\n  select distinct on (c.code_controle, c.mesure) c.resultat\n  from ops.journal_controles c\n  join dernier d on d.run_id = c.run_id\n  order by c.code_controle, c.mesure, c.controle_id desc\n)\nselect count(*) filter (where resultat = 'KO') as ko from controles"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "red", "value": 1 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Runs en échec sur la période",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "lab-sales-ops" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "select count(distinct run_id) as runs_en_echec\nfrom ops.journal_taches\nwhere statut = 'échec' and $__timeFilter(debut_le)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 1 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Tâches du dernier run",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 5 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "lab-sales-ops" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "with dernier as (select run_id from ops.journal_taches order by debut_le desc limit 1)\nselect t.tache, t.essai, t.statut,\n  to_char(t.debut_le at time zone 'Europe/Paris', 'HH24:MI:SS') as debut,\n  round(extract(epoch from coalesce(t.fin_le, now()) - t.debut_le)::numeric, 2) as duree_s,\n  t.nb_lignes, t.message\nfrom ops.journal_taches t\njoin dernier d on d.run_id = t.run_id\norder by t.debut_le, t.tache_id"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto", "cellOptions": { "type": "auto" } } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "tache" }, "properties": [ { "id": "displayName", "value": "tâche" }, { "id": "custom.width", "value": 230 } ] },
+          { "matcher": { "id": "byName", "options": "essai" }, "properties": [ { "id": "custom.width", "value": 60 } ] },
+          { "matcher": { "id": "byName", "options": "debut" }, "properties": [ { "id": "displayName", "value": "début" }, { "id": "custom.width", "value": 85 } ] },
+          { "matcher": { "id": "byName", "options": "nb_lignes" }, "properties": [ { "id": "displayName", "value": "lignes" }, { "id": "custom.width", "value": 80 } ] },
+          {
+            "matcher": { "id": "byName", "options": "statut" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } },
+              { "id": "mappings", "value": [ { "type": "value", "options": {
+                "succès": { "color": "green", "index": 0 },
+                "échec": { "color": "red", "index": 1 },
+                "réessai": { "color": "orange", "index": 2 },
+                "en cours": { "color": "blue", "index": 3 }
+              } } ] }
+            ]
+          },
+          { "matcher": { "id": "byName", "options": "statut" }, "properties": [ { "id": "custom.width", "value": 90 } ] },
+          { "matcher": { "id": "byName", "options": "duree_s" }, "properties": [ { "id": "displayName", "value": "durée (s)" }, { "id": "decimals", "value": 2 }, { "id": "custom.width", "value": 80 } ] }
+        ]
+      },
+      "options": { "showHeader": true, "cellHeight": "sm" }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Portes qualité du dernier run",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 5 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "lab-sales-ops" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "with dernier as (select run_id from ops.journal_taches order by debut_le desc limit 1)\nselect distinct on (c.code_controle, c.mesure)\n  c.code_controle as controle, c.mesure,\n  c.valeur_bronze::text as bronze, c.valeur_silver::text as silver, c.valeur_gold::text as gold,\n  c.ecart::text as ecart, c.seuil::text as seuil, c.resultat\nfrom ops.journal_controles c\njoin dernier d on d.run_id = c.run_id\norder by c.code_controle, c.mesure, c.controle_id desc"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto", "cellOptions": { "type": "auto" } } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "resultat" },
+            "properties": [
+              { "id": "displayName", "value": "résultat" },
+              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } },
+              { "id": "mappings", "value": [ { "type": "value", "options": {
+                "OK": { "color": "green", "index": 0 },
+                "KO": { "color": "red", "index": 1 }
+              } } ] }
+            ]
+          },
+          { "matcher": { "id": "byName", "options": "controle" }, "properties": [ { "id": "displayName", "value": "contrôle" }, { "id": "custom.width", "value": 75 } ] },
+          { "matcher": { "id": "byName", "options": "mesure" }, "properties": [ { "id": "custom.width", "value": 80 } ] },
+          { "matcher": { "id": "byRegexp", "options": "^(bronze|silver|gold|ecart|seuil)$" }, "properties": [ { "id": "custom.align", "value": "right" } ] },
+          { "matcher": { "id": "byName", "options": "ecart" }, "properties": [ { "id": "displayName", "value": "écart" } ] }
+        ]
+      },
+      "options": { "showHeader": true, "cellHeight": "sm" }
+    },
+    {
+      "id": 7,
+      "type": "barchart",
+      "title": "Durée des tâches par run (s)",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 14 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "lab-sales-ops" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "with runs as (\n  select run_id, min(debut_le) as debut\n  from ops.journal_taches\n  where $__timeFilter(debut_le)\n  group by run_id\n  order by debut desc\n  limit 10\n)\nselect to_char(r.debut at time zone 'Europe/Paris', 'DD/MM HH24:MI') as run,\n  round(sum(extract(epoch from t.fin_le - t.debut_le)) filter (where t.tache in ('charger_bronze', 'construire_silver'))::numeric, 2) as \"bronze + silver\",\n  round(sum(extract(epoch from t.fin_le - t.debut_le)) filter (where t.tache like 'gold.%')::numeric, 2) as \"gold\",\n  round(sum(extract(epoch from t.fin_le - t.debut_le)) filter (where t.tache like 'quality_gate%')::numeric, 2) as \"portes qualité\"\nfrom runs r\njoin ops.journal_taches t on t.run_id = r.run_id\ngroup by r.run_id, r.debut\norder by r.debut"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "decimals": 1, "color": { "mode": "palette-classic" }, "custom": { "fillOpacity": 80, "lineWidth": 0 } },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "vertical",
+        "stacking": "normal",
+        "showValue": "never",
+        "xField": "run",
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Historique des portes qualité par run",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 14 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "lab-sales-ops" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "select max(controle_le) as controle_le, to_char(date_logique, 'YYYY-MM-DD') as journee, run_id,\n  case bool_and(resultat = 'OK') filter (where code_controle = 'RC01') when true then 'OK' when false then 'KO' end as rc01,\n  case bool_and(resultat = 'OK') filter (where code_controle = 'RC02') when true then 'OK' when false then 'KO' end as rc02\nfrom ops.journal_controles\nwhere $__timeFilter(controle_le)\ngroup by run_id, date_logique\norder by max(controle_le) desc\nlimit 30"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto", "cellOptions": { "type": "auto" } } },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": "^rc0[12]$" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } },
+              { "id": "mappings", "value": [
+                { "type": "value", "options": {
+                  "OK": { "color": "green", "index": 0 },
+                  "KO": { "color": "red", "index": 1 }
+                } },
+                { "type": "special", "options": { "match": "null", "result": { "text": "non exécutée", "color": "transparent", "index": 2 } } }
+              ] }
+            ]
+          },
+          { "matcher": { "id": "byName", "options": "controle_le" }, "properties": [ { "id": "displayName", "value": "contrôlé le" }, { "id": "unit", "value": "time:DD/MM HH:mm:ss" }, { "id": "custom.width", "value": 130 } ] },
+          { "matcher": { "id": "byName", "options": "journee" }, "properties": [ { "id": "displayName", "value": "journée" }, { "id": "custom.width", "value": 100 } ] },
+          { "matcher": { "id": "byName", "options": "rc01" }, "properties": [ { "id": "displayName", "value": "RC01 bronze = silver" } ] },
+          { "matcher": { "id": "byName", "options": "rc02" }, "properties": [ { "id": "displayName", "value": "RC02 silver = gold" } ] }
+        ]
+      },
+      "options": { "showHeader": true, "cellHeight": "sm" }
+    }
+  ]
+}

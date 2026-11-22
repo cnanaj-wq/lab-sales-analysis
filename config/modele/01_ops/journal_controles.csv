@@ -1,0 +1,17 @@
+colonne;type_sql;obligatoire;cle_primaire;champ_source;description
+controle_id;serial;oui;oui;;Numéro de ligne, attribué automatiquement
+run_id;text;oui;non;;Identifiant de l'exécution Airflow
+date_logique;date;oui;non;;Journée contrôlée
+livraison_id;integer;non;non;;Livraison contrôlée, vide pour une réconciliation entre couches
+code_controle;text;oui;non;;Code du contrôle : CQ01 à CQ28, RC01 bronze-silver, RC02 silver-gold
+mesure;text;oui;non;;Mesure comparée : tickets, ca ou quantite
+valeur_bronze;numeric;non;non;;Valeur calculée dans bronze
+valeur_silver;numeric;non;non;;Valeur calculée dans silver
+valeur_gold;numeric;non;non;;Valeur calculée dans gold
+ecart;numeric;non;non;;Écart le plus grand entre les couches comparées
+seuil;numeric;oui;non;;Écart toléré, lu dans une Variable Airflow
+bloquant;boolean;oui;non;;Oui : un échec arrête le DAG et gold n'est pas publié
+resultat;text;oui;non;;OK ou KO
+nb_ecarts;integer;oui;non;;Nombre d'écarts : 0 si OK, 1 si la mesure dépasse le seuil
+exemples;text;non;non;;Au plus 10 exemples d'écarts
+controle_le;timestamptz;oui;non;;Date et heure du contrôle

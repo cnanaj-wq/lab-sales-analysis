@@ -1,0 +1,10 @@
+# Tableaux de bord chargés depuis le dossier grafana/dashboards du projet.
+apiVersion: 1
+
+providers:
+  - name: lab-sales
+    folder: Lab Sales
+    type: file
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards

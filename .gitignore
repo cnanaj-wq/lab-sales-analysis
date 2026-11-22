@@ -16,3 +16,6 @@ __pycache__/
 # Airflow et dbt
 logs/
 target/
+
+# Copies des fichiers intégrés : ce sont des données, pas du code
+data/archive/

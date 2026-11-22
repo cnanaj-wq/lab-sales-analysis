@@ -1,0 +1,5 @@
+schema;description
+ops;Suivi du pipeline : livraisons, tâches Airflow et portes qualité
+bronze;Tickets tels que livrés, sans correction
+silver;Données contrôlées : un ticket découpé en lignes article
+gold;Les 3 tables gold des 12 questions et le modèle en étoile pour Power BI
