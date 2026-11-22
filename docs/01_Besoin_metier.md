@@ -200,7 +200,7 @@ Le projet est réussi lorsque chaque critère ci-dessous est vérifié, preuve �
 
 ---
 
-## Annexe A. Questions métier à couvrir
+## Annexe A. Questions métier
 
 Les douze questions ci-dessous sont posées par le client. Chacune est reliée à la table d'analyse qui y répond et à l'indicateur de la section 4 qu'elle utilise.
 
