@@ -160,12 +160,16 @@
           "format": "table",
           "rawQuery": true,
           "editorMode": "code",
-          "rawSql": "with dernier as (select run_id from ops.journal_taches order by debut_le desc limit 1)\nselect t.tache, t.essai, t.statut, t.debut_le as debut,\n  round(extract(epoch from coalesce(t.fin_le, now()) - t.debut_le)::numeric, 2) as duree_s,\n  t.nb_lignes, t.message\nfrom ops.journal_taches t\njoin dernier d on d.run_id = t.run_id\norder by t.debut_le, t.tache_id"
+          "rawSql": "with dernier as (select run_id from ops.journal_taches order by debut_le desc limit 1)\nselect t.tache, t.essai, t.statut,\n  to_char(t.debut_le at time zone 'Europe/Paris', 'HH24:MI:SS') as debut,\n  round(extract(epoch from coalesce(t.fin_le, now()) - t.debut_le)::numeric, 2) as duree_s,\n  t.nb_lignes, t.message\nfrom ops.journal_taches t\njoin dernier d on d.run_id = t.run_id\norder by t.debut_le, t.tache_id"
         }
       ],
       "fieldConfig": {
         "defaults": { "custom": { "align": "auto", "cellOptions": { "type": "auto" } } },
         "overrides": [
+          { "matcher": { "id": "byName", "options": "tache" }, "properties": [ { "id": "displayName", "value": "tâche" }, { "id": "custom.width", "value": 230 } ] },
+          { "matcher": { "id": "byName", "options": "essai" }, "properties": [ { "id": "custom.width", "value": 60 } ] },
+          { "matcher": { "id": "byName", "options": "debut" }, "properties": [ { "id": "displayName", "value": "début" }, { "id": "custom.width", "value": 85 } ] },
+          { "matcher": { "id": "byName", "options": "nb_lignes" }, "properties": [ { "id": "displayName", "value": "lignes" }, { "id": "custom.width", "value": 80 } ] },
           {
             "matcher": { "id": "byName", "options": "statut" },
             "properties": [
@@ -178,7 +182,8 @@
               } } ] }
             ]
           },
-          { "matcher": { "id": "byName", "options": "duree_s" }, "properties": [ { "id": "displayName", "value": "durée (s)" } ] }
+          { "matcher": { "id": "byName", "options": "statut" }, "properties": [ { "id": "custom.width", "value": 90 } ] },
+          { "matcher": { "id": "byName", "options": "duree_s" }, "properties": [ { "id": "displayName", "value": "durée (s)" }, { "id": "decimals", "value": 2 }, { "id": "custom.width", "value": 80 } ] }
         ]
       },
       "options": { "showHeader": true, "cellHeight": "sm" }
@@ -195,7 +200,7 @@
           "format": "table",
           "rawQuery": true,
           "editorMode": "code",
-          "rawSql": "with dernier as (select run_id from ops.journal_taches order by debut_le desc limit 1)\nselect distinct on (c.code_controle, c.mesure)\n  c.code_controle as controle, c.mesure, c.date_logique as journee,\n  c.valeur_bronze as bronze, c.valeur_silver as silver, c.valeur_gold as gold,\n  c.ecart, c.seuil, c.resultat\nfrom ops.journal_controles c\njoin dernier d on d.run_id = c.run_id\norder by c.code_controle, c.mesure, c.controle_id desc"
+          "rawSql": "with dernier as (select run_id from ops.journal_taches order by debut_le desc limit 1)\nselect distinct on (c.code_controle, c.mesure)\n  c.code_controle as controle, c.mesure,\n  c.valeur_bronze::text as bronze, c.valeur_silver::text as silver, c.valeur_gold::text as gold,\n  c.ecart::text as ecart, c.seuil::text as seuil, c.resultat\nfrom ops.journal_controles c\njoin dernier d on d.run_id = c.run_id\norder by c.code_controle, c.mesure, c.controle_id desc"
         }
       ],
       "fieldConfig": {
@@ -212,7 +217,9 @@
               } } ] }
             ]
           },
-          { "matcher": { "id": "byName", "options": "journee" }, "properties": [ { "id": "displayName", "value": "journée" } ] },
+          { "matcher": { "id": "byName", "options": "controle" }, "properties": [ { "id": "displayName", "value": "contrôle" }, { "id": "custom.width", "value": 75 } ] },
+          { "matcher": { "id": "byName", "options": "mesure" }, "properties": [ { "id": "custom.width", "value": 80 } ] },
+          { "matcher": { "id": "byRegexp", "options": "^(bronze|silver|gold|ecart|seuil)$" }, "properties": [ { "id": "custom.align", "value": "right" } ] },
           { "matcher": { "id": "byName", "options": "ecart" }, "properties": [ { "id": "displayName", "value": "écart" } ] }
         ]
       },
@@ -258,7 +265,7 @@
           "format": "table",
           "rawQuery": true,
           "editorMode": "code",
-          "rawSql": "select max(controle_le) as controle_le, date_logique as journee, run_id,\n  case bool_and(resultat = 'OK') filter (where code_controle = 'RC01') when true then 'OK' when false then 'KO' end as rc01,\n  case bool_and(resultat = 'OK') filter (where code_controle = 'RC02') when true then 'OK' when false then 'KO' end as rc02\nfrom ops.journal_controles\nwhere $__timeFilter(controle_le)\ngroup by run_id, date_logique\norder by max(controle_le) desc\nlimit 30"
+          "rawSql": "select max(controle_le) as controle_le, to_char(date_logique, 'YYYY-MM-DD') as journee, run_id,\n  case bool_and(resultat = 'OK') filter (where code_controle = 'RC01') when true then 'OK' when false then 'KO' end as rc01,\n  case bool_and(resultat = 'OK') filter (where code_controle = 'RC02') when true then 'OK' when false then 'KO' end as rc02\nfrom ops.journal_controles\nwhere $__timeFilter(controle_le)\ngroup by run_id, date_logique\norder by max(controle_le) desc\nlimit 30"
         }
       ],
       "fieldConfig": {
@@ -268,14 +275,17 @@
             "matcher": { "id": "byRegexp", "options": "^rc0[12]$" },
             "properties": [
               { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } },
-              { "id": "mappings", "value": [ { "type": "value", "options": {
-                "OK": { "color": "green", "index": 0 },
-                "KO": { "color": "red", "index": 1 }
-              } } ] }
+              { "id": "mappings", "value": [
+                { "type": "value", "options": {
+                  "OK": { "color": "green", "index": 0 },
+                  "KO": { "color": "red", "index": 1 }
+                } },
+                { "type": "special", "options": { "match": "null", "result": { "text": "non exécutée", "color": "transparent", "index": 2 } } }
+              ] }
             ]
           },
-          { "matcher": { "id": "byName", "options": "controle_le" }, "properties": [ { "id": "displayName", "value": "contrôlé le" } ] },
-          { "matcher": { "id": "byName", "options": "journee" }, "properties": [ { "id": "displayName", "value": "journée" } ] },
+          { "matcher": { "id": "byName", "options": "controle_le" }, "properties": [ { "id": "displayName", "value": "contrôlé le" }, { "id": "unit", "value": "time:DD/MM HH:mm:ss" }, { "id": "custom.width", "value": 130 } ] },
+          { "matcher": { "id": "byName", "options": "journee" }, "properties": [ { "id": "displayName", "value": "journée" }, { "id": "custom.width", "value": 100 } ] },
           { "matcher": { "id": "byName", "options": "rc01" }, "properties": [ { "id": "displayName", "value": "RC01 bronze = silver" } ] },
           { "matcher": { "id": "byName", "options": "rc02" }, "properties": [ { "id": "displayName", "value": "RC02 silver = gold" } ] }
         ]
