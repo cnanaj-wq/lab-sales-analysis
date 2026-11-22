@@ -6,7 +6,7 @@
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![psycopg2](https://img.shields.io/badge/psycopg2-2.9-336791)
 ![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)
-![Power BI](https://img.shields.io/badge/Power_BI-%C3%A0_venir-F2C811)
+![Power BI](https://img.shields.io/badge/Power_BI-Desktop-F2C811)
 ![Grafana](https://img.shields.io/badge/Grafana-11.6-F46800?logo=grafana&logoColor=white)
 ![Mailpit](https://img.shields.io/badge/Mailpit-1.32-0F766E)
 ![pytest](https://img.shields.io/badge/pytest-8.3-0A9EDC?logo=pytest&logoColor=white)
@@ -25,9 +25,10 @@ Réalisation d'un pipeline de données qui analyse les ventes d'un réseau inter
 3. [Données](#données)
 4. [Modèle de données](#modèle-de-données)
 5. [Pipeline Airflow](#pipeline-airflow)
-6. [Démarrer l'environnement](#démarrer-lenvironnement)
-7. [Documentation](#documentation)
-8. [État d'avancement](#état-davancement)
+6. [Rapport Power BI](#rapport-power-bi)
+7. [Démarrer l'environnement](#démarrer-lenvironnement)
+8. [Documentation](#documentation)
+9. [État d'avancement](#état-davancement)
 
 ## Besoin métier
 
@@ -49,6 +50,7 @@ Lab_Sales_Analysis/
 │   ├── raw/            fichier source fourni par le client, jamais modifié
 │   └── archive/        copie de chaque fichier intégré, nommée par son empreinte (hors dépôt)
 ├── docs/               documentation du projet
+│   ├── images/powerbi/ captures des pages du rapport Power BI
 │   └── modeles/        modèles de données (MCD et MPD)
 ├── grafana/            source de données et tableau de bord de suivi des exécutions
 ├── scripts/            scripts Python (détail dans scripts/README.md)
@@ -143,6 +145,37 @@ Le pipeline ne dépend pas de ses outils de suivi : si Grafana ou Mailpit sont a
 ```powershell
 docker run --rm -v "${PWD}:/lab" -w /lab apache/airflow:3.4.0 bash -c "pip install -q pytest==8.3.5 && python -m pytest -v -p no:cacheprovider tests/dags"
 ```
+
+## Rapport Power BI
+
+Le rapport lit le modèle en étoile du schéma `gold` et le journal des contrôles `ops.journal_controles`, en mode Import, avec le rôle PostgreSQL `powerbi_lecture` en lecture seule ([script 09](scripts/09_creer_role_powerbi.py)).
+
+- **Bandeau de fraîcheur** : chaque page indique la dernière journée chargée, l'heure de publication et le résultat de la porte RC02 (critère CS10).
+- **Devise** : les montants restent en devise locale, sans conversion. Le segment Devise n'accepte qu'une valeur à la fois (EUR par défaut), pour ne jamais additionner deux devises.
+
+### Vue d'ensemble
+
+CA, transactions, valeur moyenne, quantité et taux de retour ; CA par mois et par année, 10 premiers magasins par CA, détail par pays.
+
+![Page Vue d'ensemble du rapport Power BI](docs/images/powerbi/01_vue_ensemble.png)
+
+### Suivi quotidien
+
+CA d'une journée comparé au même jour de la semaine précédente (J-7), par magasin et par pays ; les plus fortes baisses en tête du tableau.
+
+![Page Suivi quotidien du rapport Power BI](docs/images/powerbi/02_suivi_quotidien.png)
+
+### Moyens de paiement
+
+Transactions, taux de retour (avec le seuil de 10 %), articles moyens et CA par moyen de paiement : questions Q9 à Q12.
+
+![Page Moyens de paiement du rapport Power BI](docs/images/powerbi/03_moyens_paiement.png)
+
+### Produits d'un magasin
+
+Quantités par produit, retours par mois et détail par catégorie, pour un magasin choisi par pays, ville et enseigne.
+
+![Page Produits d'un magasin du rapport Power BI](docs/images/powerbi/04_produits_magasin.png)
 
 ## Démarrer l'environnement
 
@@ -263,5 +296,5 @@ Le détail de la réalisation brique par brique est suivi dans le [tableau Kanba
 - [x] DAG Airflow avec portes qualité, journaux, rattrapage et test d'intégrité
 - [x] Supervision : alertes mail (Mailpit) et suivi en temps réel (Grafana)
 - [x] Requêtes des 12 questions métier
-- [ ] Rapport Power BI
+- [x] Rapport Power BI
 - [ ] Extension Snowflake et dbt
