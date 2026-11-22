@@ -13,6 +13,7 @@ Ce dossier contient les scripts du projet. Les deux premiers travaillent sur le 
 | [`06_construire_gold_star_schema.py`](06_construire_gold_star_schema.py) | Comment servir les données à Power BI ? | Les 4 dimensions et les 2 faits de l'étoile, recalculés par les requêtes de `sql/gold_star_schema/` |
 | [`07_creer_role_grafana.py`](07_creer_role_grafana.py) | Comment Grafana lit-il les journaux sans pouvoir rien modifier ? | Rôle `grafana_lecture`, en lecture seule sur le schéma `ops` |
 | [`08_generer_mpd.py`](08_generer_mpd.py) | Le schéma du modèle physique correspond-il aux tables créées ? | Fichier [`docs/modeles/mpd.dbml`](../docs/modeles/mpd.dbml), à dessiner dans dbdiagram.io |
+| [`09_creer_role_powerbi.py`](09_creer_role_powerbi.py) | Comment Power BI lit-il les données sans pouvoir rien modifier ? | Rôle `powerbi_lecture`, en lecture seule sur les schémas `gold` et `ops` |
 
 Deux modules sont partagés par les scripts :
 
