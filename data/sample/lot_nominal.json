@@ -1,0 +1,107 @@
+[
+  {
+    "transaction_id": "TXN000001",
+    "store_id": "STR1483",
+    "store_name": "Active Life",
+    "store_country": "Canada",
+    "store_city": "Montreal",
+    "products": [
+      {
+        "product_id": "P006",
+        "product_name": "Cycling Helmet",
+        "products_category": "Equipment",
+        "quantity": 4,
+        "price": 142.5
+      },
+      {
+        "product_id": "P001",
+        "product_name": "Running Shoes",
+        "products_category": "Shoes",
+        "quantity": 2,
+        "price": 114.0
+      },
+      {
+        "product_id": "P005",
+        "product_name": "Weightlifting Gloves",
+        "products_category": "Accessories",
+        "quantity": 2,
+        "price": 23.75
+      }
+    ],
+    "total_quantity_sold": 8,
+    "total_amount": 845.5,
+    "promo_code": [
+      "no",
+      null
+    ],
+    "payment_method": "Mastercard",
+    "discount_applied": 15.52,
+    "store_type": "Mall",
+    "purchase_timestamp": "2024-07-16 15:39:37",
+    "return_status": "Returned",
+    "currency": "CAD"
+  },
+  {
+    "transaction_id": "TXN000002",
+    "store_id": "STR1805",
+    "store_name": "Pro Fitness",
+    "store_country": "India",
+    "store_city": "Bangalore",
+    "products": [
+      {
+        "product_id": "P006",
+        "product_name": "Cycling Helmet",
+        "products_category": "Equipment",
+        "quantity": 3,
+        "price": 60.0
+      },
+      {
+        "product_id": "P001",
+        "product_name": "Running Shoes",
+        "products_category": "Shoes",
+        "quantity": 2,
+        "price": 48.0
+      }
+    ],
+    "total_quantity_sold": 5,
+    "total_amount": 276.0,
+    "promo_code": [
+      "no",
+      null
+    ],
+    "payment_method": "Apple Pay (Visa)",
+    "discount_applied": 36.15,
+    "store_type": "Mall",
+    "purchase_timestamp": "2023-11-28 20:24:18",
+    "return_status": "Not Returned",
+    "currency": "INR"
+  },
+  {
+    "transaction_id": "TXN000003",
+    "store_id": "STR5221",
+    "store_name": "Pro Fitness",
+    "store_country": "China",
+    "store_city": "Shenzhen",
+    "products": [
+      {
+        "product_id": "P008",
+        "product_name": "Hiking Backpack",
+        "products_category": "Equipment",
+        "quantity": 5,
+        "price": 117.0
+      }
+    ],
+    "total_quantity_sold": 5,
+    "total_amount": 585.0,
+    "promo_code": [
+      "no",
+      null
+    ],
+    "payment_method": "Apple Pay (Visa)",
+    "discount_applied": 23.37,
+    "store_type": "Standalone Store",
+    "purchase_timestamp": "2023-08-26 05:53:56",
+    "return_status": "Not Returned",
+    "currency": "CNY"
+  }
+]

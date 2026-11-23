@@ -19,6 +19,7 @@ import psycopg2
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 ENV_FILE = PROJECT_DIR.parent / "data_connection" / "lab_sales_postgres_ventes.env"
 AIRFLOW_CONN_ID = "postgres_ventes"
+DB_OVERRIDE_VAR = "LAB_SALES_DB"
 
 
 # --- Lecture des secrets ------------------------------------------------------
@@ -60,10 +61,13 @@ def connect():
     if not ENV_FILE.exists():
         sys.exit(f"Arrêt : fichier de connexion introuvable ({ENV_FILE}).")
     settings = read_env(ENV_FILE)
+    # Base visée : LAB_SALES_DB si elle existe (les tests visent ventes_recette),
+    # sinon la base du fichier .env
+    dbname = os.environ.get(DB_OVERRIDE_VAR, settings["POSTGRES_DB"])
     return psycopg2.connect(
         host=settings["POSTGRES_HOST"],
         port=settings["POSTGRES_PORT"],
-        dbname=settings["POSTGRES_DB"],
+        dbname=dbname,
         user=settings["POSTGRES_USER"],
         password=settings["POSTGRES_PASSWORD"],
     )
