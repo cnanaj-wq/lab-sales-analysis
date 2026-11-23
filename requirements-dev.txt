@@ -1,0 +1,5 @@
+# Outils de développement : tests et qualité du code.
+# -r inclut d'abord les dépendances du pipeline.
+-r requirements.txt
+pytest==9.2.0
+ruff==0.17.6
