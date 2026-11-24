@@ -15,3 +15,5 @@ resultat;text;oui;non;;OK ou KO
 nb_ecarts;integer;oui;non;;Nombre d'écarts : 0 si OK, 1 si la mesure dépasse le seuil
 exemples;text;non;non;;Au plus 10 exemples d'écarts
 controle_le;timestamptz;oui;non;;Date et heure du contrôle
+table_controlee;text;non;non;;Table contrôlée en aval (schéma.table), gold.etoile pour fait_ticket et fait_ligne_vente, vide pour un contrôle CQ
+devise;text;non;non;;Devise de la mesure (ISO 4217), vide si la mesure couvre toutes les devises
