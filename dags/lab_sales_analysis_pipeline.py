@@ -74,7 +74,7 @@ def controlled_day(context):
     return None
 
 
-def run_script(module_name, *args):
+def run_script(module_name, *args, **kwargs):
     """Lance main() d'un script du projet et renvoie ses compteurs.
 
     stop() arrête un script avec sys.exit : on le transforme en erreur
@@ -82,7 +82,7 @@ def run_script(module_name, *args):
     """
     module = importlib.import_module(module_name)
     try:
-        return module.main(*args)
+        return module.main(*args, **kwargs)
     except SystemExit as error:
         raise RuntimeError(str(error)) from None
 
@@ -377,7 +377,12 @@ DEFAULT_ARGS = {
 def lab_sales_analysis_pipeline():
     @task
     def charger_bronze():
-        return run_script("04_charger_bronze")
+        context = get_current_context()
+        return run_script(
+            "04_charger_bronze",
+            run_id=context["run_id"],
+            control_day=logical_day(context),
+        )
 
     @task
     def construire_silver(bronze):
