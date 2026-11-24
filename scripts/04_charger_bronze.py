@@ -13,6 +13,7 @@ Lancement depuis la racine du projet :
 import hashlib
 import json
 import sys
+from datetime import date
 from pathlib import Path
 
 from psycopg2.extras import Json, execute_values
@@ -30,7 +31,8 @@ BATCH_SIZE = 1000
 STATUS_PUBLISHED = "publiée"
 STATUS_ALREADY_LOADED = "déjà intégrée"
 STATUS_REJECTED = "refusée"
-
+CONTROL_CODE = "CQ14"
+MAX_EXAMPLES = 10
 
 # --- Empreinte du fichier -----------------------------------------------------
 
@@ -40,12 +42,58 @@ def file_hash(content):
     return hashlib.sha256(content).hexdigest()
 
 
+# --- Contrôle CQ14 : ticket déjà chargé et modifié ----------------------------
+
+
+def modified_tickets(cursor, tickets):
+    """Renvoie les tickets déjà présents dans bronze avec un contenu différent."""
+    cursor.execute(
+        """
+        select transaction_id, document
+        from bronze.pos_sales_raw
+        where transaction_id = any(%s)
+        """,
+        ([ticket["transaction_id"] for ticket in tickets],),
+    )
+    loaded = dict(cursor.fetchall())
+
+    modified = []
+    for ticket in tickets:
+        transaction_id = ticket["transaction_id"]
+        if transaction_id in loaded and loaded[transaction_id] != ticket:
+            modified.append(transaction_id)
+    return modified
+
+
+def write_control(cursor, delivery_id, modified, run_id, control_day):
+    """Écrit le résultat de CQ14 dans ops.journal_controles."""
+    cursor.execute(
+        """
+        insert into ops.journal_controles (
+            run_id, date_logique, livraison_id, code_controle, mesure,
+            seuil, bloquant, resultat, nb_ecarts, exemples, controle_le
+        )
+        values (%s, %s, %s, %s, 'tickets', 0, true, %s, %s, %s, now())
+        """,
+        (
+            run_id,
+            control_day,
+            delivery_id,
+            CONTROL_CODE,
+            "KO" if modified else "OK",
+            len(modified),
+            ", ".join(modified[:MAX_EXAMPLES]) or None,
+        ),
+    )
+
+
 # --- Chargement d'un fichier --------------------------------------------------
 
 
-def main(source_file=DEFAULT_SOURCE_FILE):
+def main(source_file=DEFAULT_SOURCE_FILE, run_id="manuel", control_day=None):
     """Charge un fichier JSON dans bronze et renvoie les compteurs du chargement."""
     source_file = Path(source_file)
+    control_day = control_day or date.today()
 
     # Contrôle du fichier source
     if not source_file.parent.is_dir():
@@ -100,6 +148,28 @@ def main(source_file=DEFAULT_SOURCE_FILE):
             "tickets_charges": 0,
         }
 
+    # CQ14 : un ticket déjà chargé ne doit pas revenir avec un autre contenu
+    with connection, connection.cursor() as cursor:
+        modified = modified_tickets(cursor, tickets)
+        if modified:
+            cursor.execute(
+                """
+                insert into ops.journal_livraisons
+                    (nom_fichier, empreinte_fichier, recu_le, traite_le, nb_tickets, statut)
+                values (%s, %s, now(), now(), %s, %s)
+                returning livraison_id
+                """,
+                (source_file.name, fingerprint, len(tickets), STATUS_REJECTED),
+            )
+            write_control(cursor, cursor.fetchone()[0], modified, run_id, control_day)
+
+    if modified:
+        connection.close()
+        stop(
+            f"CQ14 : {len(modified)} tickets déjà chargés reviennent modifiés "
+            f"({', '.join(modified[:MAX_EXAMPLES])}). Rien n'a été chargé."
+        )
+
     # Chargement dans bronze : tout ou rien
     try:
         with connection, connection.cursor() as cursor:
@@ -113,11 +183,13 @@ def main(source_file=DEFAULT_SOURCE_FILE):
                 (source_file.name, fingerprint, STATUS_PUBLISHED),
             )
             delivery_id = cursor.fetchone()[0]
+            write_control(cursor, delivery_id, [], run_id, control_day)
 
             rows = []
             for ticket in tickets:
                 rows.append((ticket["transaction_id"], delivery_id, Json(ticket)))
 
+            # Après CQ14, un ticket déjà présent est forcément identique : on l'ignore
             inserted = execute_values(
                 cursor,
                 """

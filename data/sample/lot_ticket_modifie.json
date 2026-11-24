@@ -1,0 +1,72 @@
+[
+  {
+    "transaction_id": "TXN000001",
+    "store_id": "STR1483",
+    "store_name": "Active Life",
+    "store_country": "Canada",
+    "store_city": "Montreal",
+    "products": [
+      {
+        "product_id": "P006",
+        "product_name": "Cycling Helmet",
+        "products_category": "Equipment",
+        "quantity": 5,
+        "price": 142.5
+      },
+      {
+        "product_id": "P001",
+        "product_name": "Running Shoes",
+        "products_category": "Shoes",
+        "quantity": 2,
+        "price": 114.0
+      },
+      {
+        "product_id": "P005",
+        "product_name": "Weightlifting Gloves",
+        "products_category": "Accessories",
+        "quantity": 2,
+        "price": 23.75
+      }
+    ],
+    "total_quantity_sold": 9,
+    "total_amount": 988.0,
+    "promo_code": [
+      "no",
+      null
+    ],
+    "payment_method": "Mastercard",
+    "discount_applied": 15.52,
+    "store_type": "Mall",
+    "purchase_timestamp": "2024-07-16 15:39:37",
+    "return_status": "Returned",
+    "currency": "CAD"
+  },
+  {
+    "transaction_id": "TXN000004",
+    "store_id": "STR5723",
+    "store_name": "Active Life",
+    "store_country": "France",
+    "store_city": "Marseille",
+    "products": [
+      {
+        "product_id": "P004",
+        "product_name": "Basketball",
+        "products_category": "Equipment",
+        "quantity": 4,
+        "price": 54.0
+      }
+    ],
+    "total_quantity_sold": 4,
+    "total_amount": 216.0,
+    "promo_code": [
+      "no",
+      null
+    ],
+    "payment_method": "Apple Pay (Mastercard)",
+    "discount_applied": 62.84,
+    "store_type": "Standalone Store",
+    "purchase_timestamp": "2023-05-23 06:32:16",
+    "return_status": "Not Returned",
+    "currency": "EUR"
+  }
+]

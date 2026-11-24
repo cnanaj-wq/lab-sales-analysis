@@ -11,6 +11,7 @@ import pytest
 
 SAMPLE_DIR = Path(__file__).resolve().parent.parent / "data" / "sample"
 LOT_NOMINAL = SAMPLE_DIR / "lot_nominal.json"
+LOT_TICKET_MODIFIE = SAMPLE_DIR / "lot_ticket_modifie.json"
 
 # Le nom du script commence par un chiffre : import par importlib
 bronze = importlib.import_module("04_charger_bronze")
@@ -56,3 +57,32 @@ def test_meme_fichier_livre_deux_fois_n_est_pas_recharge(db, archive_dir):
             "select statut from ops.journal_livraisons order by livraison_id"
         )
         assert [row[0] for row in cursor.fetchall()] == ["publiée", "déjà intégrée"]
+
+
+def test_ticket_deja_charge_et_modifie_bloque_la_livraison(db, archive_dir):
+    """CQ14 : un ticket déjà chargé qui revient modifié bloque toute la livraison."""
+    bronze.main(LOT_NOMINAL)
+
+    with pytest.raises(SystemExit):
+        bronze.main(LOT_TICKET_MODIFIE)
+
+    with db.cursor() as cursor:
+        # Rien n'est chargé : ni le ticket modifié, ni le ticket nouveau du lot
+        cursor.execute("select count(*) from bronze.pos_sales_raw")
+        assert cursor.fetchone()[0] == 3
+        cursor.execute(
+            "select document ->> 'total_amount' from bronze.pos_sales_raw"
+            " where transaction_id = 'TXN000001'"
+        )
+        assert cursor.fetchone()[0] == "845.5"
+
+        # La livraison est refusée et le contrôle CQ14 est journalisé
+        cursor.execute(
+            "select statut from ops.journal_livraisons order by livraison_id"
+        )
+        assert [row[0] for row in cursor.fetchall()] == ["publiée", "refusée"]
+        cursor.execute(
+            "select resultat, nb_ecarts, exemples from ops.journal_controles"
+            " where code_controle = 'CQ14' order by controle_id"
+        )
+        assert cursor.fetchall() == [("OK", 0, None), ("KO", 1, "TXN000001")]
