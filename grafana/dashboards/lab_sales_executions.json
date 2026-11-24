@@ -92,7 +92,7 @@
           "format": "table",
           "rawQuery": true,
           "editorMode": "code",
-          "rawSql": "with dernier as (select run_id from ops.journal_taches order by debut_le desc limit 1),\ncontroles as (\n  select distinct on (c.code_controle, c.mesure) c.resultat\n  from ops.journal_controles c\n  join dernier d on d.run_id = c.run_id\n  order by c.code_controle, c.mesure, c.controle_id desc\n)\nselect count(*) filter (where resultat = 'KO') as ko from controles"
+          "rawSql": "with dernier as (select run_id from ops.journal_taches order by debut_le desc limit 1),\ncontroles as (\n  select distinct on (c.code_controle, c.table_controlee, c.devise, c.mesure) c.resultat\n  from ops.journal_controles c\n  join dernier d on d.run_id = c.run_id\n  order by c.code_controle, c.table_controlee, c.devise, c.mesure, c.controle_id desc\n)\nselect count(*) filter (where resultat = 'KO') as ko from controles"
         }
       ],
       "fieldConfig": {
@@ -200,7 +200,7 @@
           "format": "table",
           "rawQuery": true,
           "editorMode": "code",
-          "rawSql": "with dernier as (select run_id from ops.journal_taches order by debut_le desc limit 1)\nselect distinct on (c.code_controle, c.mesure)\n  c.code_controle as controle, c.mesure,\n  c.valeur_bronze::text as bronze, c.valeur_silver::text as silver, c.valeur_gold::text as gold,\n  c.ecart::text as ecart, c.seuil::text as seuil, c.resultat\nfrom ops.journal_controles c\njoin dernier d on d.run_id = c.run_id\norder by c.code_controle, c.mesure, c.controle_id desc"
+          "rawSql": "with dernier as (select run_id from ops.journal_taches order by debut_le desc limit 1)\nselect * from (\n  select distinct on (c.code_controle, c.table_controlee, c.devise, c.mesure)\n    c.code_controle as controle, c.table_controlee, c.devise, c.mesure,\n    c.valeur_bronze::text as bronze, c.valeur_silver::text as silver, c.valeur_gold::text as gold,\n    c.ecart::text as ecart, c.seuil::text as seuil, c.resultat\n  from ops.journal_controles c\n  join dernier d on d.run_id = c.run_id\n  order by c.code_controle, c.table_controlee, c.devise, c.mesure, c.controle_id desc\n) as dernier_resultat\norder by resultat, controle, table_controlee, devise, mesure"
         }
       ],
       "fieldConfig": {

@@ -2,7 +2,7 @@
 
 -- Schéma ops
 create schema if not exists ops;
-comment on schema ops is 'Journal des livraisons et des contrôles qualité';
+comment on schema ops is 'Suivi du pipeline : livraisons, tâches Airflow et portes qualité';
 
 create table if not exists ops.journal_controles (
     controle_id serial not null,
@@ -21,6 +21,8 @@ create table if not exists ops.journal_controles (
     nb_ecarts integer not null,
     exemples text,
     controle_le timestamptz not null,
+    table_controlee text,
+    devise text,
     primary key (controle_id)
 );
 comment on column ops.journal_controles.controle_id is 'Numéro de ligne, attribué automatiquement';
@@ -35,10 +37,12 @@ comment on column ops.journal_controles.valeur_gold is 'Valeur calculée dans go
 comment on column ops.journal_controles.ecart is 'Écart le plus grand entre les couches comparées';
 comment on column ops.journal_controles.seuil is 'Écart toléré, lu dans une Variable Airflow';
 comment on column ops.journal_controles.bloquant is 'Oui : un échec arrête le DAG et gold n''est pas publié';
-comment on column ops.journal_controles.resultat is 'Réussi, avertissement ou échec';
-comment on column ops.journal_controles.nb_ecarts is 'Nombre de lignes en écart';
+comment on column ops.journal_controles.resultat is 'OK ou KO';
+comment on column ops.journal_controles.nb_ecarts is 'Nombre d''écarts : 0 si OK, 1 si la mesure dépasse le seuil';
 comment on column ops.journal_controles.exemples is 'Au plus 10 exemples d''écarts';
 comment on column ops.journal_controles.controle_le is 'Date et heure du contrôle';
+comment on column ops.journal_controles.table_controlee is 'Table contrôlée en aval (schéma.table), gold.etoile pour fait_ticket et fait_ligne_vente, vide pour un contrôle CQ';
+comment on column ops.journal_controles.devise is 'Devise de la mesure (ISO 4217), vide si la mesure couvre toutes les devises';
 
 create table if not exists ops.journal_livraisons (
     livraison_id serial not null,
@@ -79,7 +83,7 @@ comment on column ops.journal_taches.date_logique is 'Journée traitée par l''e
 comment on column ops.journal_taches.tache is 'Nom de la tâche, par exemple gold.construire_star_schema';
 comment on column ops.journal_taches.debut_le is 'Date et heure de début de la tâche';
 comment on column ops.journal_taches.fin_le is 'Date et heure de fin de la tâche, vide tant qu''elle tourne';
-comment on column ops.journal_taches.statut is 'En cours, succès ou échec';
+comment on column ops.journal_taches.statut is 'En cours, succès, réessai ou échec';
 comment on column ops.journal_taches.essai is 'Numéro de l''essai : 1, puis 2 ou 3 en cas de réessai';
 comment on column ops.journal_taches.nb_lignes is 'Nombre de lignes traitées, transmis par XCom';
 comment on column ops.journal_taches.message is 'Message principal ou erreur ';
@@ -102,7 +106,7 @@ comment on column bronze.pos_sales_raw.charge_le is 'Date et heure de chargement
 
 -- Schéma silver
 create schema if not exists silver;
-comment on schema silver is 'Données contrôlées : table intermédiaire et modèle métier';
+comment on schema silver is 'Données contrôlées : un ticket découpé en lignes article';
 
 create table if not exists silver.exploded_products (
     transaction_id text not null,
@@ -146,7 +150,7 @@ comment on column silver.exploded_products.price is 'Prix unitaire sur la ligne'
 
 -- Schéma gold
 create schema if not exists gold;
-comment on schema gold is 'Tables d''analyse qui répondent aux 12 questions';
+comment on schema gold is 'Les 3 tables gold des 12 questions et le modèle en étoile pour Power BI';
 
 create table if not exists gold.daily_sales_country_currency (
     purchase_date date not null,

@@ -2,7 +2,8 @@
 
 Enchaîne les scripts du projet : chargement de bronze, construction de silver,
 porte qualité RC01 (bronze = silver), groupe gold (les 3 tables gold et le
-modèle en étoile, en parallèle), puis porte qualité RC02 (silver = gold).
+modèle en étoile, en parallèle), puis porte qualité RC02 (silver = l'étoile
+et les 3 tables gold). Les portes comparent les mesures devise par devise.
 Chaque tâche est notée dans ops.journal_taches ; chaque contrôle dans
 ops.journal_controles. XCom ne transporte que de petits compteurs.
 Un mail part vers l'astreinte (Mailpit en local) : bilan des contrôles si tout
@@ -28,7 +29,43 @@ from airflow.sdk.exceptions import AirflowFailException
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = PROJECT_DIR / "scripts"
 CONTROLS_DIR = PROJECT_DIR / "sql" / "controles"
-MEASURES = ["tickets", "ca", "quantite"]
+
+# Tables rapprochées par chaque porte qualité. requete : fichier
+# sql/controles/mesures_<requete>.sql ; mesures : ce que la table sait calculer.
+# toute_la_table : la table n'a pas de date, elle se contrôle toujours en entier.
+# toutes_devises : la table n'a pas de devise, elle est rapprochée sur son total.
+RC01_TABLES = [
+    {
+        "table": "silver.exploded_products",
+        "requete": "silver",
+        "mesures": ["tickets", "ca", "quantite"],
+    },
+]
+RC02_TABLES = [
+    {
+        "table": "gold.etoile",
+        "requete": "gold_etoile",
+        "mesures": ["tickets", "ca", "quantite"],
+    },
+    {
+        "table": "gold.daily_sales_country_currency",
+        "requete": "gold_daily_sales",
+        "mesures": ["tickets", "ca"],
+    },
+    {
+        "table": "gold.store_sales_summary",
+        "requete": "gold_store_sales",
+        "mesures": ["ca", "quantite"],
+        "toute_la_table": True,
+    },
+    {
+        "table": "gold.payment_method_analysis",
+        "requete": "gold_payment_method",
+        "mesures": ["tickets", "ca"],
+        "toute_la_table": True,
+        "toutes_devises": True,
+    },
+]
 THRESHOLD_VARIABLE = "lab_sales_seuil_ecart"
 ALERT_RECIPIENTS = ["astreinte-data@lab.local"]
 AIRFLOW_UI_URL = "http://localhost:8090"
@@ -87,19 +124,29 @@ def run_script(module_name, *args, **kwargs):
         raise RuntimeError(str(error)) from None
 
 
-def read_measures(layer, day):
-    """Lit les mesures tickets, ca, quantite d'une couche (None = toute la table)."""
+def read_measures(query_name, day):
+    """Lit les mesures d'une requête de contrôle : {(devise, mesure): valeur}.
+
+    La requête renvoie une ligne par devise : la devise, puis une colonne
+    par mesure. day = None : toute la table.
+    """
     from connexion import connect
 
-    query = (CONTROLS_DIR / f"mesures_{layer}.sql").read_text(encoding="utf-8")
+    query = (CONTROLS_DIR / f"mesures_{query_name}.sql").read_text(encoding="utf-8")
     connection = connect()
     try:
         with connection.cursor() as cursor:
             cursor.execute(query, {"jour": day})
-            row = cursor.fetchone()
+            columns = [column.name for column in cursor.description]
+            rows = cursor.fetchall()
     finally:
         connection.close()
-    return dict(zip(MEASURES, row))
+
+    measures = {}
+    for row in rows:
+        for column, value in zip(columns[1:], row[1:]):
+            measures[(row[0], column)] = value
+    return measures
 
 
 # --- Journal des tâches (callbacks) -------------------------------------------
@@ -173,7 +220,10 @@ def on_task_failure(context):
 
 
 def read_controls(run_id):
-    """Lit le dernier résultat de chaque contrôle (code, mesure) d'un run."""
+    """Lit le dernier résultat de chaque contrôle d'un run, KO en tête.
+
+    Un contrôle est identifié par son code, sa table, sa devise et sa mesure.
+    """
     from connexion import connect
 
     connection = connect()
@@ -181,12 +231,17 @@ def read_controls(run_id):
         with connection.cursor() as cursor:
             cursor.execute(
                 """
-                select distinct on (code_controle, mesure)
-                    code_controle, mesure, valeur_bronze, valeur_silver,
-                    valeur_gold, ecart, seuil, resultat
-                from ops.journal_controles
-                where run_id = %(run_id)s
-                order by code_controle, mesure, controle_id desc
+                select * from (
+                    select distinct on (code_controle, table_controlee, devise, mesure)
+                        code_controle, table_controlee, devise, mesure,
+                        valeur_bronze, valeur_silver, valeur_gold,
+                        ecart, seuil, resultat
+                    from ops.journal_controles
+                    where run_id = %(run_id)s
+                    order by code_controle, table_controlee, devise, mesure,
+                        controle_id desc
+                ) as dernier
+                order by resultat, code_controle, table_controlee, devise, mesure
                 """,
                 {"run_id": run_id},
             )
@@ -203,6 +258,8 @@ def controls_html(rows):
         f"<th>{title}</th>"
         for title in [
             "Contrôle",
+            "Table",
+            "Devise",
             "Mesure",
             "Bronze",
             "Silver",
@@ -278,12 +335,14 @@ def write_control_journal(code, results, delivery_id):
                 cursor.execute(
                     """
                     insert into ops.journal_controles (
-                        run_id, date_logique, livraison_id, code_controle, mesure,
+                        run_id, date_logique, livraison_id, code_controle,
+                        table_controlee, devise, mesure,
                         valeur_bronze, valeur_silver, valeur_gold, ecart,
                         seuil, bloquant, resultat, nb_ecarts, controle_le
                     )
                     values (
-                        %(run_id)s, %(jour)s, %(livraison_id)s, %(code)s, %(mesure)s,
+                        %(run_id)s, %(jour)s, %(livraison_id)s, %(code)s,
+                        %(table_controlee)s, %(devise)s, %(mesure)s,
                         %(bronze)s, %(silver)s, %(gold)s, %(ecart)s,
                         %(seuil)s, true, %(resultat)s, %(nb_ecarts)s, now()
                     )
@@ -293,6 +352,9 @@ def write_control_journal(code, results, delivery_id):
                         "jour": logical_day(context),
                         "livraison_id": delivery_id,
                         "code": code,
+                        "bronze": None,
+                        "silver": None,
+                        "gold": None,
                         **result,
                     },
                 )
@@ -300,44 +362,47 @@ def write_control_journal(code, results, delivery_id):
         connection.close()
 
 
-def run_quality_gate(code, upstream, downstream, delivery_id):
-    """Compare les mesures de deux couches, note le résultat et bloque si KO.
+def run_quality_gate(code, upstream_layer, tables, delivery_id):
+    """Rapproche une couche amont de chaque table aval, devise par devise.
 
-    upstream et downstream sont des noms de couche : bronze, silver ou gold.
+    Écrit une ligne par table, devise et mesure dans ops.journal_controles,
+    puis arrête le DAG si une seule ligne est KO.
     """
+    from rapprochement import compare_measures, select_upstream
+
     day = controlled_day(get_current_context())
     threshold = Decimal(Variable.get(THRESHOLD_VARIABLE, default="0"))
 
-    upstream_values = read_measures(upstream, day)
-    downstream_values = read_measures(downstream, day)
-
     results = []
-    for measure in MEASURES:
-        gap = abs(
-            Decimal(downstream_values[measure]) - Decimal(upstream_values[measure])
+    for target in tables:
+        # Une table sans date se contrôle toujours en entier
+        target_day = None if target.get("toute_la_table") else day
+        upstream = select_upstream(
+            read_measures(upstream_layer, target_day),
+            target["mesures"],
+            all_currencies=target.get("toutes_devises", False),
         )
-        result = {
-            "mesure": measure,
-            "bronze": None,
-            "silver": None,
-            "gold": None,
-            "ecart": gap,
-            "seuil": threshold,
-            "resultat": "OK" if gap <= threshold else "KO",
-            "nb_ecarts": 0 if gap <= threshold else 1,
-        }
-        result[upstream] = upstream_values[measure]
-        result[downstream] = downstream_values[measure]
-        results.append(result)
+        downstream = read_measures(target["requete"], target_day)
+        downstream_layer = target["table"].split(".")[0]
+        for result in compare_measures(upstream, downstream, threshold):
+            result["table_controlee"] = target["table"]
+            result[upstream_layer] = result["amont"]
+            result[downstream_layer] = result["aval"]
+            results.append(result)
 
     write_control_journal(code, results, delivery_id)
 
-    failed = [r["mesure"] for r in results if r["resultat"] == "KO"]
+    failed = [
+        f"{r['table_controlee']} {r['devise'] or 'toutes devises'} {r['mesure']}"
+        for r in results
+        if r["resultat"] == "KO"
+    ]
     if failed:
         raise AirflowFailException(
-            f"{code} KO : {upstream} ≠ {downstream} ({', '.join(failed)})"
+            f"{code} KO : {len(failed)} écart(s) avec {upstream_layer} : "
+            + ", ".join(failed[:10])
         )
-    return {r["mesure"]: r["resultat"] for r in results}
+    return {"mesures_controlees": len(results), "ko": 0}
 
 
 # --- DAG ----------------------------------------------------------------------
@@ -391,8 +456,8 @@ def lab_sales_analysis_pipeline():
 
     @task(retries=0)
     def quality_gate_rc01(bronze, silver):
-        """Porte qualité : bronze et silver doivent avoir les mêmes totaux."""
-        return run_quality_gate("RC01", "bronze", "silver", bronze["livraison_id"])
+        """Porte qualité : bronze et silver, mêmes totaux devise par devise."""
+        return run_quality_gate("RC01", "bronze", RC01_TABLES, bronze["livraison_id"])
 
     @task_group
     def gold(rc01):
@@ -413,8 +478,8 @@ def lab_sales_analysis_pipeline():
 
     @task(retries=0)
     def quality_gate_rc02(bronze, gold_tables):
-        """Porte qualité : silver et l'étoile de gold doivent avoir les mêmes totaux."""
-        return run_quality_gate("RC02", "silver", "gold", bronze["livraison_id"])
+        """Porte qualité : silver, l'étoile et les 3 tables gold, devise par devise."""
+        return run_quality_gate("RC02", "silver", RC02_TABLES, bronze["livraison_id"])
 
     @task
     def envoyer_bilan(rc02):

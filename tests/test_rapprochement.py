@@ -4,7 +4,7 @@
 
 from decimal import Decimal
 
-from rapprochement import compare_measures
+from rapprochement import compare_measures, select_upstream
 
 # --- Tests --------------------------------------------------------------------
 
@@ -44,3 +44,22 @@ def test_devise_absente_d_un_cote_detectee():
     results = compare_measures(silver, gold, threshold=Decimal(0))
 
     assert ko_keys(results) == {("JPY", "tickets")}
+
+
+def test_devise_vide_detectee():
+    """Un pays inconnu de silver donne une devise vide en gold : elle est KO."""
+    silver = {("EUR", "ca"): Decimal("100.00")}
+    gold = {("EUR", "ca"): Decimal("100.00"), (None, "ca"): Decimal("5.00")}
+
+    results = compare_measures(silver, gold, threshold=Decimal(0))
+
+    assert ko_keys(results) == {(None, "ca")}
+
+
+def test_amont_totalise_pour_une_table_sans_devise():
+    """payment_method_analysis n'a pas de devise : silver est totalisé."""
+    silver = {("EUR", "tickets"): 5, ("USD", "tickets"): 2, ("EUR", "quantite"): 9}
+
+    selected = select_upstream(silver, ["tickets"], all_currencies=True)
+
+    assert selected == {(None, "tickets"): 7}
